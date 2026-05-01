@@ -1,0 +1,10 @@
+{
+  "name": "lasalle-admissions-backend",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Mock backend scaffold for the La Salle admissions admin portal",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}

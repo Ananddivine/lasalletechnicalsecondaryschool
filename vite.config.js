@@ -8,7 +8,7 @@ export default defineConfig({
   optimizeDeps: {
     include: ["jwt-decode", 'jspdf',]
   },
-  assetsInclude: ['**/*.cur'],
+  assetsInclude: ['**/*.cur', '**/*.docx'],
    resolve: {
     extensions: ['.js', '.jsx', '.json'],
      alias: {

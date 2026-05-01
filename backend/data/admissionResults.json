@@ -1,0 +1,35 @@
+[
+  {
+    "id": "ADM-2026-001",
+    "applicantName": "Mary Kila",
+    "formTitle": "Grade 9",
+    "applicantType": "New intake",
+    "status": "Approved",
+    "submittedOn": "2026-01-18",
+    "paymentStatus": "Paid K500",
+    "reviewer": "Br. Antony Samy Pancras    ",
+    "decision": "Approved for registration day attendance."
+  },
+  {
+    "id": "ADM-2026-014",
+    "applicantName": "Samuel Aia",
+    "formTitle": "Grade 10 Transfer",
+    "applicantType": "Transfer / Repeat",
+    "status": "Pending",
+    "submittedOn": "2026-01-20",
+    "paymentStatus": "Awaiting K1050",
+    "reviewer": "Academic Review Desk",
+    "decision": "Pending fee confirmation and cumulative report review."
+  },
+  {
+    "id": "ADM-2026-052",
+    "applicantName": "Theresa Nako",
+    "formTitle": "NC 1 & 2",
+    "applicantType": "Certificate course",
+    "status": "Approved",
+    "submittedOn": "2026-02-01",
+    "paymentStatus": "Paid K2000",
+    "reviewer": "NC Admissions Team",
+    "decision": "Accepted into the NC 1 intake queue for course placement."
+  }
+]
