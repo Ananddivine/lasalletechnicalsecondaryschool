@@ -28,11 +28,11 @@ export default function Hero() {
         <div className="serial-light-panel h-full rounded-[calc(2.6rem-2px)] bg-[linear-gradient(155deg,rgba(255,255,255,0.98),rgba(241,245,249,0.95))] p-8 shadow-[0_30px_90px_rgba(15,23,42,0.12)] sm:p-10 lg:p-12">
           <div className="space-y-8">
             <span className="inline-flex rounded-full border border-sky-200 bg-sky-50 px-4 py-2 text-xs font-bold uppercase tracking-[0.35em] text-sky-700">
-              Lasallian education in action
+             Deemed School
             </span>
             <div className="space-y-5">
               <h1 className="max-w-4xl text-[clamp(3rem,5vw,5.2rem)] font-black leading-[0.93] tracking-tight text-slate-950">
-                A sharper campus story for
+             
                 <span className="block bg-gradient-to-r from-sky-600 via-cyan-600 to-emerald-500 bg-clip-text text-transparent">
                   La Salle Technical Secondary School
                 </span>
