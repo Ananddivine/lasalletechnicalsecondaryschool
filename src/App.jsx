@@ -2,6 +2,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-route
 import Navbar from './components/navbar/Navbar'
 import Footer from './components/footer/Footer'
 import AdminLayout from './components/admin/AdminLayout'
+import SeoHead from './components/seo/SeoHead'
 import HomePage from './pages/HomePage'
 import AboutPage from './pages/AboutPage'
 import ProgramsPage from './pages/ProgramsPage'
@@ -25,13 +26,16 @@ import NC12AdmissionPage from './pages/NC12AdmissionPage'
 import ContactPage from './pages/ContactPage'
 import HistoryPage from './pages/HistoryPage'
 import StudentHandbookPage from './pages/StudentHandbookPage'
+import { getSeoConfig } from './seoConfig'
 
 function AppContent() {
   const location = useLocation()
   const isPortalRoute = location.pathname.startsWith('/portal')
+  const seoConfig = getSeoConfig(location.pathname)
 
   return (
     <div className={isPortalRoute ? 'w-full' : 'mx-auto w-full px-6 pb-12'}>
+      <SeoHead {...seoConfig} />
       {!isPortalRoute && <Navbar />}
       <main className={isPortalRoute ? '' : 'grid gap-16 py-6'}>
         <Routes>
