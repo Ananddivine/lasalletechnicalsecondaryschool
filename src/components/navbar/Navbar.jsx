@@ -25,6 +25,7 @@ const navItems = [
   { id: 'history', label: 'History', path: '/history' },
   { id: 'handbook', label: 'Handbook', path: '/handbook' },
   { id: 'contact', label: 'Contact', path: '/contact' },
+  { id: 'login', label: 'Login', path: '/portal/login' },
 ]
 
 export default function Navbar() {

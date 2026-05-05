@@ -13,6 +13,7 @@ import AdminLoginPage from './pages/AdminLoginPage'
 import AdminManagePage from './pages/AdminManagePage'
 import AdmissionResultDetailPage from './pages/AdmissionResultDetailPage'
 import AdmissionResultsPage from './pages/AdmissionResultsPage'
+import AdmissionTrashPage from './pages/AdmissionTrashPage'
 import Grade9AdmissionPage from './pages/Grade9AdmissionPage'
 import Grade9TransferAdmissionPage from './pages/Grade9TransferAdmissionPage'
 import Grade10AdmissionPage from './pages/Grade10AdmissionPage'
@@ -57,6 +58,7 @@ function AppContent() {
             <Route path="manage" element={<AdminManagePage />} />
             <Route path="activities" element={<AdminActivitiesPage />} />
             <Route path="results" element={<AdmissionResultsPage />} />
+            <Route path="trash" element={<AdmissionTrashPage />} />
             <Route path="results/:resultId" element={<AdmissionResultDetailPage />} />
           </Route>
           <Route path="*" element={<HomePage />} />

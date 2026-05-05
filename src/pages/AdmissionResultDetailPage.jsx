@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useReactToPrint } from 'react-to-print'
+import DeleteApplicationDialog from '../components/admin/DeleteApplicationDialog'
 import useAdmissionResults from '../hooks/useAdmissionResults'
 
 function downloadFile(file) {
@@ -12,14 +13,69 @@ function downloadFile(file) {
   anchor.click()
 }
 
+function PrintableSectionHeading({ children }) {
+  return (
+    <div className="section-heading border-b border-black pb-2 text-center text-[12px] font-bold uppercase tracking-[0.2em] text-slate-950">
+      {children}
+    </div>
+  )
+}
+
+function PrintableInfoTable({ rows, className = '' }) {
+  return (
+    <table className={`print-table w-full border-collapse table-fixed text-[12px] text-slate-950 ${className}`.trim()}>
+      <tbody>
+        {rows.map((row) => (
+          <tr key={row.label} className="print-avoid-break">
+            <th className="w-[28%] border border-black px-3 py-2 text-left font-bold uppercase tracking-[0.08em]">
+              {row.label}
+            </th>
+            <td className="border border-black px-3 py-2 font-medium">{row.value || '-'}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function PrintableTwoColumnTable({ leftRows, rightRows }) {
+  const maxLength = Math.max(leftRows.length, rightRows.length)
+
+  return (
+    <table className="print-table w-full border-collapse table-fixed text-[12px] text-slate-950">
+      <tbody>
+        {Array.from({ length: maxLength }, (_, index) => {
+          const left = leftRows[index]
+          const right = rightRows[index]
+
+          return (
+            <tr key={`${left?.label ?? 'left'}-${right?.label ?? 'right'}-${index}`} className="print-avoid-break">
+              <th className="w-[19%] border border-black px-3 py-2 text-left font-bold uppercase tracking-[0.08em]">
+                {left?.label ?? ''}
+              </th>
+              <td className="w-[31%] border border-black px-3 py-2 font-medium">{left?.value || ''}</td>
+              <th className="w-[19%] border border-black px-3 py-2 text-left font-bold uppercase tracking-[0.08em]">
+                {right?.label ?? ''}
+              </th>
+              <td className="w-[31%] border border-black px-3 py-2 font-medium">{right?.value || ''}</td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
 export default function AdmissionResultDetailPage() {
   const { resultId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { results, updateResult, deleteResult } = useAdmissionResults()
-  const result = results.find((item) => item.id === resultId)
+  const { allResults, updateResult, deleteResult, restoreResult } = useAdmissionResults()
+  const result = allResults.find((item) => item.id === resultId)
   const printRef = useRef(null)
   const isEditMode = searchParams.get('mode') === 'edit'
+  const [deleteComment, setDeleteComment] = useState('')
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [draft, setDraft] = useState(() =>
     result
       ? {
@@ -79,38 +135,57 @@ export default function AdmissionResultDetailPage() {
     [draft, isEditMode, result],
   )
 
-  const detailGroups = useMemo(
-    () =>
-      displayRecord
-        ? [
-            [
-              ['Application ID', displayRecord.id],
-              ['Form Title', displayRecord.formTitle],
-              ['Applicant Type', displayRecord.applicantType],
-              ['Status', displayRecord.status],
-            ],
-            [
-              ['Email', displayRecord.email],
-              ['WhatsApp', displayRecord.whatsapp],
-              ['Date of Birth', displayRecord.dateOfBirth],
-              ['Age', String(displayRecord.age)],
-            ],
-            [
-              ['Gender', displayRecord.gender],
-              ['Home Province', displayRecord.homeProvince],
-              ['Address', displayRecord.address],
-              ['Last School', displayRecord.lastSchool],
-            ],
-            [
-              ['Guardian Name', displayRecord.guardianName],
-              ['Guardian Contact', displayRecord.guardianContact],
-              ['Course Interest', displayRecord.courseInterest],
-              ['Interview Date', displayRecord.interviewDate],
-            ],
-          ]
-        : [],
-    [displayRecord],
-  )
+  const printableSections = useMemo(() => {
+    if (!displayRecord) {
+      return null
+    }
+
+    const pageOneLeft = [
+      { label: 'Applicant Name', value: displayRecord.applicantName },
+      { label: 'Application No.', value: displayRecord.id },
+      { label: 'Form Title', value: displayRecord.formTitle },
+      { label: 'Applicant Type', value: displayRecord.applicantType },
+      { label: 'Date of Birth', value: displayRecord.dateOfBirth },
+      { label: 'Age', value: String(displayRecord.age) },
+      { label: 'Gender', value: displayRecord.gender },
+      { label: 'Home Province', value: displayRecord.homeProvince },
+    ]
+
+    const pageOneRight = [
+      { label: 'Address', value: displayRecord.address },
+      { label: 'Email Address', value: displayRecord.email },
+      { label: 'Contact Number', value: displayRecord.whatsapp },
+      { label: 'Last School', value: displayRecord.lastSchool },
+      { label: 'Guardian Name', value: displayRecord.guardianName },
+      { label: 'Guardian Contact', value: displayRecord.guardianContact },
+      { label: 'Course Interest', value: displayRecord.courseInterest },
+      { label: 'Interview Date', value: displayRecord.interviewDate },
+    ]
+
+    const reviewRows = [
+      { label: 'Status', value: displayRecord.status },
+      { label: 'Reviewer', value: displayRecord.reviewer },
+      { label: 'Payment Status', value: displayRecord.paymentStatus },
+      { label: 'Submitted On', value: displayRecord.submittedOn },
+      { label: 'Medical Note', value: displayRecord.medicalNote },
+      { label: 'Deleted On', value: displayRecord.deletedAt ? new Date(displayRecord.deletedAt).toLocaleString() : 'Active' },
+      { label: 'Delete Reason', value: displayRecord.deletedReason || 'Not deleted' },
+    ]
+
+    const conditions = [
+      `${displayRecord.formTitle} students must present complete registration records on the official registration day.`,
+      `First installment and payment confirmation must match the admissions office record before clearance is granted.`,
+      'Any false, missing, or forged documents may lead to cancellation of admission and further disciplinary action.',
+      'Uniform, identification, and compulsory supporting documents are required before the student attends classes.',
+    ]
+
+    return {
+      pageOneLeft,
+      pageOneRight,
+      reviewRows,
+      conditions,
+    }
+  }, [displayRecord])
 
   const handlePrint = useReactToPrint({
     contentRef: printRef,
@@ -118,15 +193,154 @@ export default function AdmissionResultDetailPage() {
     pageStyle: `
       @page {
         size: A4;
-        margin: 16mm;
+        margin: 0;
+      }
+      html, body {
+        margin: 0;
+        padding: 0;
       }
       body {
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 11px;
+        line-height: 1.25;
+        color: #000;
         print-color-adjust: exact !important;
         -webkit-print-color-adjust: exact !important;
         background: white;
       }
       .print-hidden {
         display: none !important;
+      }
+      .print-sheet {
+        width: 210mm;
+        height: 297mm;
+        box-sizing: border-box;
+        padding: 8mm;
+        margin: 0;
+        page-break-after: always;
+        break-after: page;
+        background: white;
+        overflow: hidden;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+      .print-sheet:last-child {
+        page-break-after: auto;
+        break-after: auto;
+      }
+      .print-sheet + .print-sheet {
+        margin-top: 0 !important;
+      }
+      .print-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        border-bottom: 1.5px solid #000;
+        padding-bottom: 6px;
+      }
+      .print-title {
+        margin: 4px 0 0;
+        font-size: 17px;
+        font-weight: bold;
+        text-align: left;
+        letter-spacing: 0.04em;
+      }
+      .print-subtitle {
+        margin: 3px 0 0;
+        font-size: 11px;
+      }
+      .photo-box {
+        width: 24mm;
+        height: 32mm;
+        flex-shrink: 0;
+        border: 1px solid #000;
+        padding: 1.5mm;
+        box-sizing: border-box;
+      }
+      .photo-box img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      .section {
+        margin-top: 6px;
+      }
+      .section-tight {
+        margin-top: 4px;
+      }
+      .section-heading {
+        text-align: center;
+        font-weight: bold;
+        letter-spacing: 1px;
+      }
+      .print-sheet p,
+      .print-sheet h2,
+      .print-sheet h3 {
+        margin-bottom: 0;
+      }
+      .print-sheet ol {
+        margin: 6px 0 0;
+      }
+      .print-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        page-break-inside: auto;
+      }
+      .print-table th,
+      .print-table td {
+        border: 1px solid #000;
+        padding: 4px 6px;
+        vertical-align: top;
+      }
+      .print-table th {
+        font-weight: bold;
+        text-transform: uppercase;
+      }
+      .print-table tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .print-avoid-break {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .print-block-avoid {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+      .signature-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .signature-box {
+        width: 48%;
+      }
+      .signature-line {
+        border-bottom: 1px solid #000;
+        height: 20px;
+      }
+      .signature-label {
+        margin-top: 3px;
+        font-size: 11px;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+      .print-sheet .mt-2 {
+        margin-top: 4px !important;
+      }
+      .print-sheet .mt-3 {
+        margin-top: 6px !important;
+      }
+      .print-sheet .mt-4 {
+        margin-top: 8px !important;
+      }
+      .print-sheet .mt-8 {
+        margin-top: 12px !important;
       }
     `,
   })
@@ -161,73 +375,221 @@ export default function AdmissionResultDetailPage() {
             </p>
           </div>
           <span className="rounded-full bg-slate-950 px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-white">
-            {result.status}
+            {result.isDeleted ? 'In Trash' : result.status}
           </span>
         </div>
       </div>
 
       <div className="print-hidden flex flex-wrap gap-4">
-        <Link
-          to={`/portal/results/${result.id}${isEditMode ? '' : '?mode=edit'}`}
-          className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-950 hover:text-slate-950"
-        >
-          {isEditMode ? 'Editing mode' : 'Edit details'}
-        </Link>
-        <button
-          type="button"
-          onClick={() => {
-            deleteResult(result.id)
-            navigate('/portal/results', { replace: true })
-          }}
-          className="rounded-full border border-rose-300 px-5 py-3 text-sm font-semibold text-rose-700 transition hover:border-rose-700 hover:bg-rose-50"
-        >
-          Delete applicant
-        </button>
+        {!result.isDeleted ? (
+          <>
+            <Link
+              to={`/portal/results/${result.id}${isEditMode ? '' : '?mode=edit'}`}
+              className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-950 hover:text-slate-950"
+            >
+              {isEditMode ? 'Editing mode' : 'Edit details'}
+            </Link>
+            <button
+              type="button"
+              onClick={() => setIsDeleteDialogOpen(true)}
+              className="rounded-full border border-rose-300 px-5 py-3 text-sm font-semibold text-rose-700 transition hover:border-rose-700 hover:bg-rose-50"
+            >
+              Delete applicant
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => restoreResult(result.id)}
+              className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+            >
+              Restore applicant
+            </button>
+            <Link
+              to="/portal/trash"
+              className="rounded-full border border-slate-300 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-950 hover:text-slate-950"
+            >
+              Back to trash
+            </Link>
+          </>
+        )}
       </div>
 
-      <div ref={printRef} className="border border-slate-300 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.06)] print:border-black print:p-0 print:shadow-none sm:p-8">
-        <div className="border-b-2 border-slate-900 pb-6 print:px-6 print:pt-6">
-          <div className="flex items-start justify-between gap-6">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.35em] text-slate-700">La Salle Technical Secondary School</p>
-              <h2 className="mt-3 text-3xl font-black tracking-tight text-slate-950">Official Admission Result Form</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-700">
-                Admissions Office, Port Moresby, Papua New Guinea
-              </p>
-              <p className="text-sm leading-6 text-slate-700">Issued for school admission review and applicant records.</p>
+      <div ref={printRef} className="space-y-6 bg-slate-100/60 print:space-y-0 print:bg-white">
+        <div className="print-sheet rounded-[1rem] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)] print:rounded-none print:shadow-none">
+          <div className="print-header print-block-avoid border-b-[1.5px] border-black pb-3">
+            <div className="flex-1">
+              <div>
+                <p className="text-[12px] font-bold uppercase tracking-[0.34em] text-slate-800">La Salle Technical Secondary School</p>
+                <h2 className="print-title mt-2 text-[24px] font-black tracking-tight text-slate-950">Official Admission Result Form</h2>
+                <p className="print-subtitle mt-2 text-[11px] leading-5 text-slate-800">Admissions Office, Port Moresby, Papua New Guinea</p>
+                <p className="text-[11px] leading-5 text-slate-800">Issued for school admission review and applicant records.</p>
+              </div>
             </div>
-            <div className="border border-slate-400 p-2">
+            <div className="photo-box w-[6.5rem] shrink-0 border border-black p-1.5">
               <img
                 src={displayRecord.profilePhoto}
                 alt={displayRecord.applicantName}
-                className="h-36 w-28 object-cover object-center"
+                className="h-full w-full object-cover object-center"
               />
             </div>
           </div>
-        </div>
 
-        <div className="mt-6 border border-slate-300 print:mx-6">
-          <div className="grid border-b border-slate-300 bg-slate-100 text-sm font-bold uppercase tracking-[0.24em] text-slate-700 sm:grid-cols-[220px_1fr_220px_1fr] print:bg-transparent">
-            <div className="border-r border-slate-300 px-4 py-3">Applicant Name</div>
-            <div className="border-r border-slate-300 px-4 py-3 text-base font-semibold normal-case tracking-normal text-slate-950">{displayRecord.applicantName}</div>
-            <div className="border-r border-slate-300 px-4 py-3">Application No.</div>
-            <div className="px-4 py-3 text-base font-semibold normal-case tracking-normal text-slate-950">{displayRecord.id}</div>
-          </div>
-          {detailGroups.map((group, groupIndex) => (
-            <div key={`group-${groupIndex}`} className="grid sm:grid-cols-2">
-              {group.map(([label, value], index) => (
-                <div key={label} className={`grid border-b border-slate-300 sm:grid-cols-[220px_1fr] ${index % 2 === 0 ? 'sm:border-r' : ''}`}>
-                  <div className="border-r border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold uppercase tracking-[0.22em] text-slate-600 print:bg-transparent">
-                    {label}
-                  </div>
-                  <div className="px-4 py-3 text-sm font-medium text-slate-900">{value}</div>
-                </div>
-              ))}
+          <div className="section grid gap-3 md:grid-cols-2">
+            <div className="print-block-avoid">
+              <PrintableSectionHeading>Student Information</PrintableSectionHeading>
+              <div className="section-tight mt-3">
+                <PrintableInfoTable rows={printableSections.pageOneLeft} />
+              </div>
             </div>
-          ))}
+            <div className="print-block-avoid">
+              <PrintableSectionHeading>Application and Contact</PrintableSectionHeading>
+              <div className="section-tight mt-3">
+                <PrintableInfoTable rows={printableSections.pageOneRight} />
+              </div>
+            </div>
+          </div>
+
+          <div className="section print-block-avoid">
+            <PrintableSectionHeading>Review Information</PrintableSectionHeading>
+            <div className="section-tight mt-3">
+              <PrintableInfoTable rows={printableSections.reviewRows} />
+            </div>
+          </div>
         </div>
 
-        <div className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr] print:mx-6 print:grid-cols-[1.15fr_0.85fr]">
+        <div className="print-sheet rounded-[1rem] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)] print:rounded-none print:shadow-none">
+          <div className="print-block-avoid">
+            <PrintableSectionHeading>Admissions Decision</PrintableSectionHeading>
+            <div className="section-tight border border-black px-3 py-3 text-[11px] leading-5 text-slate-950">
+              <p className="font-bold uppercase tracking-[0.08em]">Decision</p>
+              <p className="mt-2">{displayRecord.decision}</p>
+              <p className="mt-4 font-bold uppercase tracking-[0.08em]">Notes</p>
+              <p className="mt-2 whitespace-pre-wrap">{displayRecord.notes}</p>
+            </div>
+          </div>
+
+          <div className="section print-block-avoid">
+            <PrintableSectionHeading>Uploaded Files Reference</PrintableSectionHeading>
+            <table className="print-table section-tight mt-3 w-full border-collapse table-fixed text-[12px] text-slate-950">
+              <thead>
+                <tr>
+                  <th className="w-14 border border-black px-3 py-2 text-center font-bold">#</th>
+                  <th className="border border-black px-3 py-2 text-left font-bold uppercase tracking-[0.08em]">Document</th>
+                  <th className="w-28 border border-black px-3 py-2 text-center font-bold uppercase tracking-[0.08em]">Type</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayRecord.uploadedFiles.map((file, index) => (
+                  <tr key={file.id} className="print-avoid-break">
+                    <td className="border border-black px-3 py-2 text-center font-semibold">{index + 1}</td>
+                    <td className="border border-black px-3 py-2">{file.label}</td>
+                    <td className="border border-black px-3 py-2 text-center uppercase">{file.type}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="section print-block-avoid">
+            <PrintableSectionHeading>Certification</PrintableSectionHeading>
+            <div className="section-tight border border-black px-4 py-3 text-[11px] leading-5 text-slate-950">
+              <p>
+                I certify that the above information and submitted documents are correct to the best of my knowledge and are ready for admission verification.
+              </p>
+              <div className="signature-row mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="signature-box">
+                  <div className="signature-line border-b border-black pb-5" />
+                  <p className="signature-label mt-2 font-semibold uppercase tracking-[0.08em]">Student Name / Signature</p>
+                  <p className="mt-2">{displayRecord.applicantName}</p>
+                </div>
+                <div className="signature-box">
+                  <div className="signature-line border-b border-black pb-5" />
+                  <p className="signature-label mt-2 font-semibold uppercase tracking-[0.08em]">Parent / Guardian Signature</p>
+                  <p className="mt-2">{displayRecord.guardianName}</p>
+                </div>
+              </div>
+              <div className="signature-row mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="signature-box">
+                  <div className="signature-line border-b border-black pb-4" />
+                  <p className="signature-label mt-2 font-semibold uppercase tracking-[0.08em]">Date</p>
+                  <p className="mt-2">{displayRecord.interviewDate || displayRecord.submittedOn}</p>
+                </div>
+                <div className="signature-box">
+                  <div className="signature-line border-b border-black pb-4" />
+                  <p className="signature-label mt-2 font-semibold uppercase tracking-[0.08em]">Admissions Officer</p>
+                  <p className="mt-2">{displayRecord.reviewer}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div className="print-sheet rounded-[1rem] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)] print:rounded-none print:shadow-none">
+
+          <div className="print-block-avoid">
+            <PrintableSectionHeading>Checklist Verification</PrintableSectionHeading>
+            <table className="print-table section-tight mt-3 w-full border-collapse table-fixed text-[12px] text-slate-950">
+              <thead>
+                <tr>
+                  <th className="w-14 border border-black px-3 py-2 text-center font-bold">#</th>
+                  <th className="border border-black px-3 py-2 text-left font-bold uppercase tracking-[0.08em]">Requirement</th>
+                  <th className="w-24 border border-black px-3 py-2 text-center font-bold uppercase tracking-[0.08em]">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayRecord.checklistStatus.map((item, index) => (
+                  <tr key={item} className="print-avoid-break">
+                    <td className="border border-black px-3 py-2 text-center font-semibold">{index + 1}</td>
+                    <td className="border border-black px-3 py-2">{item}</td>
+                    <td className="border border-black px-3 py-2 text-center font-semibold">Checked</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="print-block-avoid">
+            <PrintableSectionHeading>Registration Conditions</PrintableSectionHeading>
+            <div className="section-tight border border-black px-4 py-3 text-[11px] leading-5 text-slate-950">
+              <p className="font-semibold">
+                The registration committee will verify these requirements before the student is cleared for classes.
+              </p>
+              <ol className="mt-3 space-y-1.5 pl-5">
+                {printableSections.conditions.map((condition) => (
+                  <li key={condition}>{condition}</li>
+                ))}
+              </ol>
+            </div>
+          </div>
+
+          <div className="section print-block-avoid">
+            <PrintableSectionHeading>Office Use Only</PrintableSectionHeading>
+            <table className="print-table section-tight mt-3 w-full border-collapse table-fixed text-[12px] text-slate-950">
+              <tbody>
+                <tr className="print-avoid-break">
+                  <th className="w-[25%] border border-black px-3 py-2 text-left font-bold uppercase tracking-[0.08em]">Approved Status</th>
+                  <td className="border border-black px-3 py-2 font-semibold">{displayRecord.status}</td>
+                </tr>
+                <tr className="print-avoid-break">
+                  <th className="border border-black px-3 py-2 text-left font-bold uppercase tracking-[0.08em]">Receiving Staff</th>
+                  <td className="border border-black px-3 py-2">{displayRecord.reviewer}</td>
+                </tr>
+                <tr className="print-avoid-break">
+                  <th className="border border-black px-3 py-2 text-left font-bold uppercase tracking-[0.08em]">Payment Clearance</th>
+                  <td className="border border-black px-3 py-2">{displayRecord.paymentStatus}</td>
+                </tr>
+                <tr className="print-avoid-break">
+                  <th className="border border-black px-3 py-2 text-left font-bold uppercase tracking-[0.08em]">Official Remarks</th>
+                  <td className="border border-black px-3 py-5">{displayRecord.decision}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="print-hidden mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
             {isEditMode ? (
               <div className="print-hidden border border-slate-300 p-5">
@@ -461,6 +823,8 @@ export default function AdmissionResultDetailPage() {
                   ['Payment Status', displayRecord.paymentStatus],
                   ['Submitted On', displayRecord.submittedOn],
                   ['Medical Note', displayRecord.medicalNote],
+                  ['Deleted On', displayRecord.deletedAt ? new Date(displayRecord.deletedAt).toLocaleString() : 'Active'],
+                  ['Delete Reason', displayRecord.deletedReason || 'Not deleted'],
                 ].map(([label, value]) => (
                   <div key={label} className="grid sm:grid-cols-[170px_1fr]">
                     <div className="border-r border-slate-300 bg-slate-50 px-4 py-3 text-sm font-bold uppercase tracking-[0.16em] text-slate-600 print:bg-transparent">
@@ -551,20 +915,28 @@ export default function AdmissionResultDetailPage() {
             Back to results table
           </Link>
         </div>
-
-        <div className="hidden print:block">
-          <div className="mx-6 mt-6 border border-slate-300 p-4">
-            <h2 className="text-lg font-black uppercase tracking-[0.18em] text-slate-950">Uploaded files reference</h2>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {displayRecord.uploadedFiles.map((file) => (
-                <div key={file.id} className="border border-slate-300 px-4 py-3 text-sm text-slate-700">
-                {file.label}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
+
+      <DeleteApplicationDialog
+        isOpen={isDeleteDialogOpen}
+        applicantName={result.applicantName}
+        comment={deleteComment}
+        onCommentChange={setDeleteComment}
+        onCancel={() => {
+          setIsDeleteDialogOpen(false)
+          setDeleteComment('')
+        }}
+        onConfirm={() => {
+          if (!deleteComment.trim()) {
+            return
+          }
+
+          deleteResult(result.id, deleteComment, result.reviewer || 'Admissions Office')
+          setIsDeleteDialogOpen(false)
+          setDeleteComment('')
+          navigate('/portal/trash', { replace: true })
+        }}
+      />
     </section>
   )
 }

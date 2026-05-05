@@ -54,6 +54,16 @@ function SidebarItemIcon({ label, isCompact = false }) {
           <path d="M9 15h6" />
         </svg>
       )
+    case 'Trash':
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M4 7h16" />
+          <path d="M9 7V4h6v3" />
+          <path d="M7 7l1 13h8l1-13" />
+          <path d="M10 11v5" />
+          <path d="M14 11v5" />
+        </svg>
+      )
     case 'Activities':
       return (
         <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -81,6 +91,7 @@ const routeTitles = {
   '/portal/manage': 'Manage Admissions',
   '/portal/activities': 'Admissions Activities',
   '/portal/results': 'Admission Results',
+  '/portal/trash': 'Deleted Applications',
 }
 
 function AdminAvatar({ session }) {

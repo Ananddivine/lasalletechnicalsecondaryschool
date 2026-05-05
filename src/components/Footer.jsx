@@ -7,7 +7,8 @@ export default function Footer() {
       </div>
       <div className="footer-links">
         <span>Contact: info@lasalletech.edu</span>
-        <span>Phone: +234 800 123 4567</span>
+        <span>Phone: +67571689267</span>
+        <span>Address: G5WF+2FG, Oak St, Port Moresby National Capital District, Papua New Guinea</span>
       </div>
     </footer>
   )

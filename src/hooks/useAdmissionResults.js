@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { getAdmissionResults, saveAdmissionResults } from '../data/adminPortalData'
 
 export default function useAdmissionResults() {
-  const [results, setResults] = useState(() => getAdmissionResults())
+  const [allResults, setAllResults] = useState(() => getAdmissionResults())
 
   useEffect(() => {
     const handleUpdate = () => {
-      setResults(getAdmissionResults())
+      setAllResults(getAdmissionResults())
     }
 
     window.addEventListener('storage', handleUpdate)
@@ -19,12 +19,22 @@ export default function useAdmissionResults() {
   }, [])
 
   const persist = (nextResults) => {
-    setResults(nextResults)
+    setAllResults(nextResults)
     saveAdmissionResults(nextResults)
   }
 
+  const results = useMemo(
+    () => allResults.filter((result) => !result.isDeleted),
+    [allResults],
+  )
+
+  const trashResults = useMemo(
+    () => allResults.filter((result) => result.isDeleted),
+    [allResults],
+  )
+
   const updateResult = (resultId, updater) => {
-    const nextResults = results.map((result) => {
+    const nextResults = allResults.map((result) => {
       if (result.id !== resultId) {
         return result
       }
@@ -35,13 +45,50 @@ export default function useAdmissionResults() {
     persist(nextResults)
   }
 
-  const deleteResult = (resultId) => {
-    persist(results.filter((result) => result.id !== resultId))
+  const deleteResult = (resultId, reason = 'Deleted from the admissions portal', deletedBy = 'Admissions Office') => {
+    const trimmedReason = reason.trim()
+
+    const nextResults = allResults.map((result) => {
+      if (result.id !== resultId) {
+        return result
+      }
+
+      return {
+        ...result,
+        isDeleted: true,
+        deletedAt: new Date().toISOString(),
+        deletedReason: trimmedReason || 'Deleted from the admissions portal',
+        deletedBy,
+      }
+    })
+
+    persist(nextResults)
+  }
+
+  const restoreResult = (resultId) => {
+    const nextResults = allResults.map((result) => {
+      if (result.id !== resultId) {
+        return result
+      }
+
+      return {
+        ...result,
+        isDeleted: false,
+        deletedAt: null,
+        deletedReason: '',
+        deletedBy: '',
+      }
+    })
+
+    persist(nextResults)
   }
 
   return {
     results,
+    allResults,
+    trashResults,
     updateResult,
     deleteResult,
+    restoreResult,
   }
 }

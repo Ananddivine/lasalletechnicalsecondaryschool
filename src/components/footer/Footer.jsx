@@ -7,7 +7,8 @@ export default function Footer() {
       </div>
       <div className="mt-6 flex flex-col gap-3 text-sm text-slate-600 sm:mt-0 sm:flex-row sm:items-center sm:gap-8">
         <span>Contact: info@lasalletech.edu</span>
-        <span>Phone: +234 800 123 4567</span>
+        <span>Phone: +67571689267</span>
+        <span>Address: G5WF+2FG, Oak St, Port Moresby National Capital District, Papua New Guinea</span>
       </div>
     </footer>
   )

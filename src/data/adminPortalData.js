@@ -43,6 +43,11 @@ export const adminSidebarSections = [
         path: '/portal/results',
         description: 'See every applicant and open the full decision record.',
       },
+      {
+        label: 'Trash',
+        path: '/portal/trash',
+        description: 'Review deleted applications and restore records when needed.',
+      },
     ],
   },
   {
@@ -328,6 +333,10 @@ function buildResult(index) {
       type: file.type,
       url: file.url,
     })),
+    isDeleted: false,
+    deletedAt: null,
+    deletedReason: '',
+    deletedBy: '',
   }
 }
 
@@ -335,6 +344,16 @@ export const initialAdmissionResults = Array.from({ length: 24 }, (_, index) => 
 
 const portalSessionKey = 'lasalle-admin-session'
 const admissionResultsKey = 'lasalle-admission-results'
+
+function normalizeAdmissionResult(result) {
+  return {
+    ...result,
+    isDeleted: Boolean(result?.isDeleted),
+    deletedAt: result?.deletedAt ?? null,
+    deletedReason: result?.deletedReason ?? '',
+    deletedBy: result?.deletedBy ?? '',
+  }
+}
 
 export function getPortalSession() {
   if (typeof window === 'undefined') {
@@ -385,7 +404,12 @@ export function getAdmissionResults() {
 
   try {
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : initialAdmissionResults
+
+    if (!Array.isArray(parsed)) {
+      return initialAdmissionResults
+    }
+
+    return parsed.map(normalizeAdmissionResult)
   } catch {
     window.localStorage.setItem(admissionResultsKey, JSON.stringify(initialAdmissionResults))
     return initialAdmissionResults

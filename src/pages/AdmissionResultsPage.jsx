@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { DateRange } from 'react-date-range'
 import { format } from 'date-fns'
 import { useNavigate } from 'react-router-dom'
+import DeleteApplicationDialog from '../components/admin/DeleteApplicationDialog'
 import useAdmissionResults from '../hooks/useAdmissionResults'
 import 'react-date-range/dist/styles.css'
 import 'react-date-range/dist/theme/default.css'
@@ -29,7 +30,7 @@ function ActionMenu({ isVisible, onView, onEmail, onWhatsApp, onEdit, onDelete }
   }
 
   return (
-    <div className="absolute right-0 top-12 z-20 w-48 rounded-[1.35rem] border border-slate-200 bg-white p-2 shadow-[0_22px_50px_rgba(15,23,42,0.16)]">
+    <div className="absolute right-0 z-20 w-48 rounded-[1.35rem] border border-slate-200 bg-white p-2 shadow-[0_22px_50px_rgba(15,23,42,0.16)]">
       {[
         ['View', onView],
         ['Email', onEmail],
@@ -67,6 +68,27 @@ export default function AdmissionResultsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [openActionId, setOpenActionId] = useState(null)
   const [hoveredActionId, setHoveredActionId] = useState(null)
+  const [pendingDeleteResult, setPendingDeleteResult] = useState(null)
+  const [deleteComment, setDeleteComment] = useState('')
+
+  const closeDeleteDialog = () => {
+    setPendingDeleteResult(null)
+    setDeleteComment('')
+  }
+
+  const confirmDelete = () => {
+    if (!pendingDeleteResult || !deleteComment.trim()) {
+      return
+    }
+
+    deleteResult(
+      pendingDeleteResult.id,
+      deleteComment,
+      pendingDeleteResult.reviewer || 'Admissions Office',
+    )
+    setOpenActionId(null)
+    closeDeleteDialog()
+  }
 
   const toggleDateFilter = () => {
     setShowDateFilter((previousValue) => {
@@ -265,7 +287,7 @@ export default function AdmissionResultsPage() {
                 {paginatedResults.map((result, index) => (
                   <tr
                     key={result.id}
-                    className={`align-top ${index % 2 === 0 ? 'bg-white/80' : 'bg-slate-50/85'} border-t border-slate-200/90`}
+                    className={`align-top ${index % 2 === 0 ? 'bg-white/80' : 'bg-slate-50/85'} border-t border-slate-200/90 hover:bg-slate-200 transition`}
                   >
                     <td className="px-6 py-5">
                       <p className="text-sm font-semibold text-slate-950">{result.applicantName}</p>
@@ -327,8 +349,8 @@ export default function AdmissionResultsPage() {
                           }
                           onEdit={() => navigate(`/portal/results/${result.id}?mode=edit`)}
                           onDelete={() => {
-                            deleteResult(result.id)
-                            setOpenActionId(null)
+                            setPendingDeleteResult(result)
+                            setDeleteComment('')
                           }}
                         />
                       </div>
@@ -393,6 +415,15 @@ export default function AdmissionResultsPage() {
           </div>
         </div>
       </div>
+
+      <DeleteApplicationDialog
+        isOpen={Boolean(pendingDeleteResult)}
+        applicantName={pendingDeleteResult?.applicantName ?? 'this applicant'}
+        comment={deleteComment}
+        onCommentChange={setDeleteComment}
+        onCancel={closeDeleteDialog}
+        onConfirm={confirmDelete}
+      />
     </section>
   )
 }
