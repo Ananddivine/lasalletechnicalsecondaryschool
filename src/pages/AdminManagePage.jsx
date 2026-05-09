@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { manageCards } from '../data/adminPortalData'
+import { fetchManageOverview } from '../lib/api'
 
 const workflowSteps = [
   {
@@ -24,6 +26,31 @@ const workflowSteps = [
 ]
 
 export default function AdminManagePage() {
+  const [manageData, setManageData] = useState(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchManageOverview()
+      .then((response) => {
+        if (isMounted) {
+          setManageData(response)
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setManageData(null)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const cards = manageData?.cards || manageCards
+  const steps = manageData?.workflowSteps || workflowSteps
+
   return (
     <section className="space-y-8">
       <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
@@ -34,7 +61,7 @@ export default function AdminManagePage() {
       </div>
 
       <div className="grid gap-5 lg:grid-cols-3">
-        {manageCards.map((card) => (
+        {cards.map((card) => (
           <article
             key={card.title}
             className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]"
@@ -49,7 +76,7 @@ export default function AdminManagePage() {
       <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
         <h2 className="text-2xl font-black tracking-tight text-slate-950">Admission workflow</h2>
         <div className="mt-6 grid gap-4 xl:grid-cols-4">
-          {workflowSteps.map((step) => (
+          {steps.map((step) => (
             <article
               key={step.step}
               className="rounded-[1.75rem] border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-6"

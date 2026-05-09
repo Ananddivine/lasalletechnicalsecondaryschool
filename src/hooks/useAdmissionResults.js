@@ -1,27 +1,50 @@
 import { useEffect, useMemo, useState } from 'react'
-import { getAdmissionResults, saveAdmissionResults } from '../data/adminPortalData'
+import { initialAdmissionResults } from '../data/adminPortalData'
+import {
+  deleteApplication,
+  fetchApplications,
+  restoreApplication,
+  updateApplication,
+} from '../lib/api'
 
 export default function useAdmissionResults() {
-  const [allResults, setAllResults] = useState(() => getAdmissionResults())
+  const [allResults, setAllResults] = useState(() => initialAdmissionResults)
+  const [isLoading, setIsLoading] = useState(true)
+  const [errorMessage, setErrorMessage] = useState('')
 
   useEffect(() => {
-    const handleUpdate = () => {
-      setAllResults(getAdmissionResults())
+    let isMounted = true
+
+    async function loadResults() {
+      try {
+        setIsLoading(true)
+        const response = await fetchApplications()
+
+        if (!isMounted) {
+          return
+        }
+
+        setAllResults(Array.isArray(response.results) ? response.results : [])
+        setErrorMessage('')
+      } catch (error) {
+        if (!isMounted) {
+          return
+        }
+
+        setErrorMessage(error.message || 'Unable to load admission results.')
+      } finally {
+        if (isMounted) {
+          setIsLoading(false)
+        }
+      }
     }
 
-    window.addEventListener('storage', handleUpdate)
-    window.addEventListener('admission-results-updated', handleUpdate)
+    loadResults()
 
     return () => {
-      window.removeEventListener('storage', handleUpdate)
-      window.removeEventListener('admission-results-updated', handleUpdate)
+      isMounted = false
     }
   }, [])
-
-  const persist = (nextResults) => {
-    setAllResults(nextResults)
-    saveAdmissionResults(nextResults)
-  }
 
   const results = useMemo(
     () => allResults.filter((result) => !result.isDeleted),
@@ -33,60 +56,50 @@ export default function useAdmissionResults() {
     [allResults],
   )
 
-  const updateResult = (resultId, updater) => {
-    const nextResults = allResults.map((result) => {
-      if (result.id !== resultId) {
-        return result
-      }
+  const updateResult = async (resultId, updater) => {
+    const currentResult = allResults.find((result) => result.id === resultId)
 
-      return typeof updater === 'function' ? updater(result) : { ...result, ...updater }
-    })
+    if (!currentResult) {
+      return
+    }
 
-    persist(nextResults)
+    const nextValue = typeof updater === 'function' ? updater(currentResult) : { ...currentResult, ...updater }
+    const response = await updateApplication(resultId, nextValue)
+
+    setAllResults((currentValue) =>
+      currentValue.map((result) => (result.id === resultId ? response.result : result)),
+    )
   }
 
-  const deleteResult = (resultId, reason = 'Deleted from the admissions portal', deletedBy = 'Admissions Office') => {
-    const trimmedReason = reason.trim()
-
-    const nextResults = allResults.map((result) => {
-      if (result.id !== resultId) {
-        return result
-      }
-
-      return {
-        ...result,
-        isDeleted: true,
-        deletedAt: new Date().toISOString(),
-        deletedReason: trimmedReason || 'Deleted from the admissions portal',
-        deletedBy,
-      }
+  const deleteResult = async (
+    resultId,
+    reason = 'Deleted from the admissions portal',
+    deletedBy = 'Admissions Office',
+  ) => {
+    const response = await deleteApplication(resultId, {
+      reason: reason.trim(),
+      deletedBy,
     })
 
-    persist(nextResults)
+    setAllResults((currentValue) =>
+      currentValue.map((result) => (result.id === resultId ? response.result : result)),
+    )
   }
 
-  const restoreResult = (resultId) => {
-    const nextResults = allResults.map((result) => {
-      if (result.id !== resultId) {
-        return result
-      }
+  const restoreResult = async (resultId) => {
+    const response = await restoreApplication(resultId)
 
-      return {
-        ...result,
-        isDeleted: false,
-        deletedAt: null,
-        deletedReason: '',
-        deletedBy: '',
-      }
-    })
-
-    persist(nextResults)
+    setAllResults((currentValue) =>
+      currentValue.map((result) => (result.id === resultId ? response.result : result)),
+    )
   }
 
   return {
     results,
     allResults,
     trashResults,
+    isLoading,
+    errorMessage,
     updateResult,
     deleteResult,
     restoreResult,

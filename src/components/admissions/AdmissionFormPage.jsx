@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { admissionFormMap, admissionForms } from '../../data/admissionForms'
+import { submitApplication } from '../../lib/api'
 
 const gradeBaseSections = (form) => [
   {
@@ -344,6 +345,8 @@ function Field({ field }) {
 
 export default function AdmissionFormPage({ slug, navigate }) {
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState('')
   const form = admissionFormMap[slug]
 
   if (!form) {
@@ -425,15 +428,38 @@ export default function AdmissionFormPage({ slug, navigate }) {
         <div className="grid gap-8 px-6 py-8 sm:px-10 xl:grid-cols-[1.45fr_0.9fr]">
           <form
             className="space-y-8"
-            onSubmit={(event) => {
+            onSubmit={async (event) => {
               event.preventDefault()
-              setSubmitted(true)
+              setIsSubmitting(true)
+              setSubmitError('')
+
+              try {
+                const formElement = event.currentTarget
+                const formData = new FormData(formElement)
+                formData.append('formTitle', form.navLabel)
+                formData.append('applicantType', form.badge)
+                formData.append('formSlug', form.slug)
+
+                await submitApplication(formData)
+                setSubmitted(true)
+                formElement.reset()
+              } catch (error) {
+                setSubmitted(false)
+                setSubmitError(error.message || 'Unable to submit the application.')
+              } finally {
+                setIsSubmitting(false)
+              }
             }}
           >
             {submitted && (
               <div className="rounded-[1.5rem] border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm font-medium text-emerald-900">
-                Form captured in the browser. Connect this submit action to your backend or email
-                workflow when you are ready to receive admissions online.
+                Application submitted successfully. The record is now stored in the admissions database.
+              </div>
+            )}
+
+            {submitError && (
+              <div className="rounded-[1.5rem] border border-rose-200 bg-rose-50 px-5 py-4 text-sm font-medium text-rose-900">
+                {submitError}
               </div>
             )}
 
@@ -497,9 +523,10 @@ export default function AdmissionFormPage({ slug, navigate }) {
             <div className="flex flex-wrap items-center gap-4">
               <button
                 type="submit"
+                disabled={isSubmitting}
                 className="rounded-full bg-slate-950 px-6 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(15,23,42,0.18)] transition hover:bg-sky-700"
               >
-                Submit form
+                {isSubmitting ? 'Submitting...' : 'Submit form'}
               </button>
               <button
                 type="button"

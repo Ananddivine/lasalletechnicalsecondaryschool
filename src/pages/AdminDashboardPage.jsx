@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Bar,
   BarChart,
@@ -16,6 +16,7 @@ import {
 } from 'recharts'
 import { admissionForms } from '../data/admissionForms'
 import { dashboardChecklist } from '../data/adminPortalData'
+import { fetchDashboardOverview } from '../lib/api'
 import useAdmissionResults from '../hooks/useAdmissionResults'
 
 const statusColors = {
@@ -32,7 +33,29 @@ const paymentColors = {
 
 export default function AdminDashboardPage() {
   const { results } = useAdmissionResults()
-  const dashboardStats = [
+  const [dashboardData, setDashboardData] = useState(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    fetchDashboardOverview()
+      .then((response) => {
+        if (isMounted) {
+          setDashboardData(response)
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setDashboardData(null)
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
+  const fallbackDashboardStats = [
     {
       label: 'Total applications',
       value: String(results.length),
@@ -56,8 +79,9 @@ export default function AdminDashboardPage() {
       detail: 'First-installment payments validated by the admissions office.',
     },
   ]
+  const dashboardStats = dashboardData?.stats || fallbackDashboardStats
 
-  const statusChartData = useMemo(() => {
+  const fallbackStatusChartData = useMemo(() => {
     const statusCounts = results.reduce((accumulator, result) => {
       accumulator[result.status] = (accumulator[result.status] ?? 0) + 1
       return accumulator
@@ -65,8 +89,9 @@ export default function AdminDashboardPage() {
 
     return Object.entries(statusCounts).map(([name, value]) => ({ name, value }))
   }, [results])
+  const statusChartData = dashboardData?.statusBreakdown || fallbackStatusChartData
 
-  const formChartData = useMemo(() => {
+  const fallbackFormChartData = useMemo(() => {
     const formCounts = admissionForms.reduce((accumulator, form) => {
       accumulator[form.navLabel] = {
         name: form.navLabel,
@@ -95,8 +120,9 @@ export default function AdminDashboardPage() {
 
     return Object.values(formCounts)
   }, [results])
+  const formChartData = dashboardData?.formBreakdown || fallbackFormChartData
 
-  const monthlyTrendData = useMemo(() => {
+  const fallbackMonthlyTrendData = useMemo(() => {
     const monthlyCounts = results.reduce((accumulator, result) => {
       const date = new Date(result.submittedOn)
       const monthLabel = date.toLocaleString('en-US', { month: 'short' })
@@ -122,8 +148,9 @@ export default function AdminDashboardPage() {
 
     return Object.values(monthlyCounts).sort((first, second) => first.sortValue - second.sortValue)
   }, [results])
+  const monthlyTrendData = dashboardData?.monthlyTrend || fallbackMonthlyTrendData
 
-  const paymentSummary = useMemo(() => {
+  const fallbackPaymentSummary = useMemo(() => {
     const paid = results.filter((result) => result.paymentStatus.toLowerCase().startsWith('paid')).length
     const unpaid = results.length - paid
 
@@ -132,6 +159,8 @@ export default function AdminDashboardPage() {
       { label: 'Awaiting / partial', value: unpaid, color: paymentColors.unpaid },
     ]
   }, [results])
+  const paymentSummary = dashboardData?.paymentSummary || fallbackPaymentSummary
+  const recentDecisions = dashboardData?.recentDecisions || results.slice(0, 4)
 
   return (
     <section className="space-y-8">
@@ -289,7 +318,7 @@ export default function AdminDashboardPage() {
             </span>
           </div>
           <div className="mt-6 space-y-4">
-            {results.slice(0, 4).map((result) => (
+            {recentDecisions.map((result) => (
               <article
                 key={result.id}
                 className="rounded-[1.5rem] border border-slate-200 bg-gradient-to-r from-slate-50 to-white p-5"

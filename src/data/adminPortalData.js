@@ -7,17 +7,59 @@ import grade11Doc from '../assets/GRADE 11.docx?url'
 import grade12Doc from '../assets/GRADE 12.docx?url'
 import nc12Doc from '../assets/NC 1 & 2.docx?url'
 
-export const adminCredentials = {
-  email: 'admin@lasalletech.edu.pg',
-  password: 'Admin@2026',
-}
-
 export const defaultAdminUser = {
   name: 'Br. Antony Samy Pancras',
-  role: 'Admissions Coordinator',
-  email: adminCredentials.email,
+  role: 'admin',
+  email: 'admission@lasalletechnicalsecondaryschool.com',
   avatar: principalPhoto,
 }
+
+export const portalAccessByRole = {
+  admin: ['dashboard', 'manage', 'results', 'trash', 'activities', 'configuration'],
+  developer: ['dashboard', 'manage', 'results', 'trash', 'activities', 'configuration'],
+  manager: ['dashboard', 'manage', 'results', 'activities'],
+  viewer: ['dashboard', 'results'],
+  stemofficer: ['dashboard', 'results', 'activities'],
+}
+
+export const portalPageOptions = [
+  {
+    key: 'dashboard',
+    label: 'Dashboard',
+    description: 'Admissions summary, charts, and daily intake overview.',
+    path: '/portal/dashboard',
+  },
+  {
+    key: 'manage',
+    label: 'Manage',
+    description: 'Document checks, payment review, and workflow routing.',
+    path: '/portal/manage',
+  },
+  {
+    key: 'results',
+    label: 'Admission Results',
+    description: 'Applicants, review actions, and decision records.',
+    path: '/portal/results',
+  },
+  {
+    key: 'trash',
+    label: 'Trash',
+    description: 'Deleted application review and restore access.',
+    path: '/portal/trash',
+  },
+  {
+    key: 'activities',
+    label: 'Activities',
+    description: 'Team tasks, calendar items, and registration events.',
+    path: '/portal/activities',
+  },
+  {
+    key: 'configuration',
+    label: 'Configuration',
+    description: 'User accounts, roles, profile photos, and page access.',
+    path: '/portal/configuration',
+  },
+]
 
 export const adminSidebarSections = [
   {
@@ -26,6 +68,7 @@ export const adminSidebarSections = [
       {
         label: 'Dashboard',
         path: '/portal/dashboard',
+        permission: 'dashboard',
         description: 'Live admissions summary and intake performance.',
       },
     ],
@@ -36,16 +79,19 @@ export const adminSidebarSections = [
       {
         label: 'Manage',
         path: '/portal/manage',
+        permission: 'manage',
         description: 'Review payment checks, document status, and routing.',
       },
       {
         label: 'Admission Results',
         path: '/portal/results',
+        permission: 'results',
         description: 'See every applicant and open the full decision record.',
       },
       {
         label: 'Trash',
         path: '/portal/trash',
+        permission: 'trash',
         description: 'Review deleted applications and restore records when needed.',
       },
     ],
@@ -56,11 +102,61 @@ export const adminSidebarSections = [
       {
         label: 'Activities',
         path: '/portal/activities',
+        permission: 'activities',
         description: 'Upcoming registration work, interviews, and follow-up tasks.',
       },
     ],
   },
+  {
+    title: 'Administration',
+    items: [
+      {
+        label: 'Configuration',
+        path: '/portal/configuration',
+        permission: 'configuration',
+        description: 'Create users, edit roles, upload profiles, and control page access.',
+      },
+    ],
+  },
 ]
+
+function normalizePortalPermissions(permissions, role = defaultAdminUser.role) {
+  const values = Array.isArray(permissions)
+    ? permissions
+    : typeof permissions === 'string'
+      ? permissions.split(/[\s,]+/).map((value) => value.trim()).filter(Boolean)
+      : []
+  const allowedValues = portalPageOptions.map((option) => option.key)
+  const filteredValues = [...new Set(values.filter((value) => allowedValues.includes(value)))]
+
+  if (filteredValues.length > 0) {
+    return filteredValues
+  }
+
+  return [...(portalAccessByRole[role] || portalAccessByRole.viewer)]
+}
+
+export function hasPortalAccess(session, permission) {
+  if (!permission) {
+    return true
+  }
+
+  return normalizePortalPermissions(session?.permissions, session?.role).includes(permission)
+}
+
+export function resolvePortalPermission(pathname) {
+  if (pathname.startsWith('/portal/results/')) {
+    return 'results'
+  }
+
+  const matchedPage = portalPageOptions.find((page) => page.path === pathname)
+  return matchedPage?.key || null
+}
+
+export function getFirstPortalPath(session) {
+  const allowedPermissions = normalizePortalPermissions(session?.permissions, session?.role)
+  return portalPageOptions.find((page) => allowedPermissions.includes(page.key))?.path || '/portal/login'
+}
 
 export const dashboardChecklist = [
   'Check passport-size photo and birth record attachments before final approval.',
@@ -367,7 +463,14 @@ export function getPortalSession() {
   }
 
   try {
-    return JSON.parse(raw)
+    const parsed = JSON.parse(raw)
+
+    return {
+      ...defaultAdminUser,
+      ...parsed,
+      avatar: parsed.avatar || parsed.profilePhoto || defaultAdminUser.avatar,
+      permissions: normalizePortalPermissions(parsed.permissions, parsed.role),
+    }
   } catch {
     window.localStorage.removeItem(portalSessionKey)
     return null
@@ -379,7 +482,15 @@ export function setPortalSession(session) {
     return
   }
 
-  window.localStorage.setItem(portalSessionKey, JSON.stringify(session))
+  window.localStorage.setItem(
+    portalSessionKey,
+    JSON.stringify({
+      ...defaultAdminUser,
+      ...session,
+      avatar: session.avatar || session.profilePhoto || defaultAdminUser.avatar,
+      permissions: normalizePortalPermissions(session.permissions, session.role),
+    }),
+  )
 }
 
 export function clearPortalSession() {

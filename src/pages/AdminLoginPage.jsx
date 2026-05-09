@@ -1,17 +1,17 @@
 import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import {
-  adminCredentials,
   defaultAdminUser,
   getPortalSession,
   setPortalSession,
 } from '../data/adminPortalData'
+import { loginAdmin } from '../lib/api'
 
 export default function AdminLoginPage() {
   const navigate = useNavigate()
   const session = getPortalSession()
-  const [email, setEmail] = useState(adminCredentials.email)
-  const [password, setPassword] = useState(adminCredentials.password)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -40,14 +40,16 @@ export default function AdminLoginPage() {
           </p>
           <div className="mt-8 grid gap-4 sm:grid-cols-2">
             <div className="rounded-[1.75rem] border border-white/10 bg-white/8 p-5">
-              <p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-200">Default login</p>
-              <p className="mt-3 text-sm leading-6 text-white">Email: {adminCredentials.email}</p>
-              <p className="text-sm leading-6 text-white">Password: {adminCredentials.password}</p>
+              <p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-200">Protected access</p>
+              <p className="mt-3 text-sm leading-6 text-white">
+                Sign in with a configured admissions account. Demo email hints are intentionally
+                removed from this screen.
+              </p>
             </div>
             <div className="rounded-[1.75rem] border border-white/10 bg-white/8 p-5">
               <p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-200">Portal tools</p>
               <p className="mt-3 text-sm leading-6 text-white">
-                Dashboard, manage queue, activities board, and admission result tracking.
+                Dashboard, review queue, file uploads, and cloud-stored admission tracking.
               </p>
             </div>
           </div>
@@ -61,33 +63,38 @@ export default function AdminLoginPage() {
             Sign in to the admissions dashboard
           </h2>
           <p className="mt-4 text-sm leading-7 text-slate-600">
-            Use the school admissions credentials to access review, management, and result pages.
+            Use the admissions admin account configured in the backend environment settings.
           </p>
 
           <form
             className="mt-8 space-y-5"
-            onSubmit={(event) => {
+            onSubmit={async (event) => {
               event.preventDefault()
               setIsSubmitting(true)
               setErrorMessage('')
 
-              window.setTimeout(() => {
-                if (
-                  email.trim().toLowerCase() === adminCredentials.email &&
-                  password === adminCredentials.password
-                ) {
-                  setPortalSession({
-                    ...defaultAdminUser,
-                    email: adminCredentials.email,
-                    lastLogin: new Date().toISOString(),
-                  })
-                  navigate('/portal/dashboard', { replace: true })
-                  return
-                }
+              try {
+                const response = await loginAdmin({
+                  email: email.trim(),
+                  password,
+                })
 
-                setErrorMessage('Invalid email or password. Use the default credentials shown on this page.')
+                setPortalSession({
+                  ...defaultAdminUser,
+                  ...response.user,
+                  role: response.role,
+                  avatar: response.profilePhoto || response.user?.profilePhoto || defaultAdminUser.avatar,
+                  token: response.token,
+                  permissions: response.permissions || [],
+                  lastLogin: new Date().toISOString(),
+                })
+
+                navigate('/portal/dashboard', { replace: true })
+              } catch (error) {
+                setErrorMessage(error.message || 'Unable to sign in.')
+              } finally {
                 setIsSubmitting(false)
-              }, 450)
+              }
             }}
           >
             <label className="block">
@@ -97,7 +104,7 @@ export default function AdminLoginPage() {
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
                 className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
-                placeholder="admin@lasalletech.edu.pg"
+                placeholder="yourid@lasalle.com"
                 required
               />
             </label>
