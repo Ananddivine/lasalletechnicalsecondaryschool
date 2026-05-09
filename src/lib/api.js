@@ -5,7 +5,13 @@ function getErrorMessage(error) {
 }
 
 export function loginAdmin(credentials) {
-  return apiClient.post('/admin/login', credentials).then((response) => response.data).catch((error) => {
+  return apiClient.post('/admin/login', credentials).then((response) => {
+    if (!response.data?.success) {
+      throw new Error(response.data?.message || 'Invalid credentials.')
+    }
+
+    return response.data
+  }).catch((error) => {
     throw new Error(getErrorMessage(error))
   })
 }
