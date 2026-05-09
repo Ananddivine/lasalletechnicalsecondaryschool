@@ -6,7 +6,7 @@ export default function Footer() {
         <p>Empowering talent in academics, technology, and leadership.</p>
       </div>
       <div className="footer-links">
-        <span>Contact: info@lasalletech.edu</span>
+        <span>Contact: info@lasalletechnicalsecondaryschool.com</span>
         <span>Phone: +67571689267</span>
         <span>Address: G5WF+2FG, Oak St, Port Moresby National Capital District, Papua New Guinea</span>
       </div>

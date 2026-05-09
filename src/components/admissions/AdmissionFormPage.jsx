@@ -343,6 +343,36 @@ function Field({ field }) {
   )
 }
 
+function SubmissionOverlay({ visible, form }) {
+  if (!visible) {
+    return null
+  }
+
+  return (
+    <div className="jarvis-submit-overlay" role="status" aria-live="polite" aria-label="Submitting admission form">
+      <div className="jarvis-submit-grid" />
+      <div className="jarvis-submit-halo" />
+      <div className="jarvis-submit-core">
+        <div className="jarvis-submit-rings">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="jarvis-submit-panel">
+          <p className="jarvis-submit-kicker">Admissions uplink</p>
+          <h2>Submitting {form.navLabel}</h2>
+          <p>Validating applicant data, securing attachments, and writing the record to admissions.</p>
+          <div className="jarvis-submit-metrics" aria-hidden="true">
+            <span>AUTH OK</span>
+            <span>UPLOAD READY</span>
+            <span>DB SYNC</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function AdmissionFormPage({ slug, navigate }) {
   const [submitted, setSubmitted] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -373,7 +403,8 @@ export default function AdmissionFormPage({ slug, navigate }) {
   const otherForms = admissionForms.filter((item) => item.slug !== slug)
 
   return (
-    <section className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8">
+    <section className={`mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8 ${isSubmitting ? 'admission-form-busy' : ''}`}>
+      <SubmissionOverlay visible={isSubmitting} form={form} />
       <div className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white/95 shadow-[0_24px_80px_rgba(15,23,42,0.12)]">
         <div className="bg-gradient-to-r from-slate-950 via-sky-900 to-cyan-700 px-6 py-10 text-white sm:px-10">
           <div className="flex flex-wrap items-start justify-between gap-4">

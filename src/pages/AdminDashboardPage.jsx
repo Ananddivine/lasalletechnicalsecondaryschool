@@ -201,7 +201,7 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <div className="min-w-0 rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">Pie Chart</p>
@@ -211,7 +211,7 @@ export default function AdminDashboardPage() {
               Live mix
             </span>
           </div>
-          <div className="mt-6 h-80">
+          <div className="mt-6 h-80 min-w-0 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -246,7 +246,7 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <div className="min-w-0 rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">Bar Chart</p>
@@ -256,7 +256,7 @@ export default function AdminDashboardPage() {
               Intake demand
             </span>
           </div>
-          <div className="mt-6 h-96">
+          <div className="mt-6 h-96 min-w-0 min-h-0">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={formChartData} barCategoryGap={18}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
@@ -272,7 +272,7 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+      <div className="min-w-0 rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">Trend Chart</p>
@@ -282,7 +282,7 @@ export default function AdminDashboardPage() {
             Monthly overview
           </span>
         </div>
-        <div className="mt-6 h-[24rem]">
+        <div className="mt-6 h-[24rem] min-w-0 min-h-0">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={monthlyTrendData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />

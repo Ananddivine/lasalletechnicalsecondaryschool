@@ -1,10 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   adminSidebarSections,
   clearPortalSession,
+  defaultAdminUser,
+  getFirstPortalPath,
   getPortalSession,
+  hasPortalAccess,
+  resolvePortalPermission,
+  setPortalSession,
 } from '../../data/adminPortalData'
+import { verifyPortalSession } from '../../lib/api'
 
 function SidebarToggleIcon({ expanded }) {
   return expanded ? (
@@ -76,6 +82,20 @@ function SidebarItemIcon({ label, isCompact = false }) {
           <circle cx="17" cy="10" r="1" fill="currentColor" stroke="none" />
         </svg>
       )
+    case 'Configuration':
+      return (
+        <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M12 3v4" />
+          <path d="M12 17v4" />
+          <path d="M3 12h4" />
+          <path d="M17 12h4" />
+          <path d="m5.6 5.6 2.8 2.8" />
+          <path d="m15.6 15.6 2.8 2.8" />
+          <path d="m5.6 18.4 2.8-2.8" />
+          <path d="m15.6 8.4 2.8-2.8" />
+          <circle cx="12" cy="12" r="3.5" />
+        </svg>
+      )
     default:
       return (
         <svg viewBox="0 0 24 24" className={className} fill="none" stroke="currentColor" strokeWidth="1.8">
@@ -92,6 +112,7 @@ const routeTitles = {
   '/portal/activities': 'Admissions Activities',
   '/portal/results': 'Admission Results',
   '/portal/trash': 'Deleted Applications',
+  '/portal/configuration': 'Portal Configuration',
 }
 
 function AdminAvatar({ session }) {
@@ -114,9 +135,54 @@ export default function AdminLayout() {
   const session = getPortalSession()
   const location = useLocation()
   const navigate = useNavigate()
+  const [isAuthorizing, setIsAuthorizing] = useState(Boolean(session?.token))
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isSidebarPinned, setIsSidebarPinned] = useState(true)
   const [isSidebarHovered, setIsSidebarHovered] = useState(false)
+  const currentToken = session?.token || ''
+
+  useEffect(() => {
+    let isMounted = true
+
+    if (!currentToken) {
+      setIsAuthorizing(false)
+      return undefined
+    }
+
+    setIsAuthorizing(true)
+
+    verifyPortalSession()
+      .then((response) => {
+        if (!isMounted) {
+          return
+        }
+
+        setPortalSession({
+          ...defaultAdminUser,
+          ...session,
+          name: response.name || session.name || defaultAdminUser.name,
+          email: response.email || session.email || defaultAdminUser.email,
+          role: response.role || session.role,
+          refId: response.refId || session.refId || null,
+          avatar: response.profilePhoto || session.avatar || defaultAdminUser.avatar,
+          permissions: response.permissions || session.permissions || [],
+        })
+        setIsAuthorizing(false)
+      })
+      .catch(() => {
+        if (!isMounted) {
+          return
+        }
+
+        clearPortalSession()
+        setIsAuthorizing(false)
+        navigate('/portal/login', { replace: true })
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [currentToken, navigate])
 
   const pageTitle = useMemo(() => {
     if (location.pathname.startsWith('/portal/results/')) {
@@ -126,8 +192,37 @@ export default function AdminLayout() {
     return routeTitles[location.pathname] ?? 'Admissions Portal'
   }, [location.pathname])
 
+  const filteredSections = useMemo(
+    () =>
+      adminSidebarSections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter((item) => hasPortalAccess(session, item.permission)),
+        }))
+        .filter((section) => section.items.length > 0),
+    [session],
+  )
+
+  const currentPagePermission = resolvePortalPermission(location.pathname)
+  const firstAllowedPath = getFirstPortalPath(session)
+
   if (!session) {
     return <Navigate to="/portal/login" replace />
+  }
+
+  if (isAuthorizing) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.18),transparent_24%),linear-gradient(180deg,#f8fafc_0%,#e0f2fe_100%)] px-6">
+        <div className="rounded-[2rem] border border-slate-200 bg-white px-8 py-7 text-center shadow-[0_18px_45px_rgba(15,23,42,0.08)]">
+          <p className="text-xs font-bold uppercase tracking-[0.32em] text-sky-700">Session Check</p>
+          <p className="mt-3 text-sm font-medium text-slate-600">Verifying your portal access.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (currentPagePermission && !hasPortalAccess(session, currentPagePermission)) {
+    return <Navigate to={firstAllowedPath} replace />
   }
 
   const isDesktopExpanded = isSidebarPinned || isSidebarHovered
@@ -197,7 +292,7 @@ export default function AdminLayout() {
           )}
 
           <nav className="mt-8 space-y-6">
-            {adminSidebarSections.map((section) => (
+            {filteredSections.map((section) => (
               <div key={section.title}>
                 {isDesktopExpanded ? (
                   <p className="text-xs font-bold uppercase tracking-[0.3em] text-cyan-200">

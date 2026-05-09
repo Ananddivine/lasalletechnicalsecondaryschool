@@ -161,3 +161,243 @@ button {
     transform: rotate(360deg);
   }
 }
+
+.admission-form-busy {
+  filter: blur(10px) saturate(0.82);
+  transform: scale(0.994);
+  transition: filter 220ms ease, transform 220ms ease;
+  pointer-events: none;
+}
+
+.jarvis-submit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at center, rgba(14, 116, 144, 0.24), rgba(2, 6, 23, 0.9) 62%),
+    linear-gradient(145deg, rgba(2, 6, 23, 0.72), rgba(8, 47, 73, 0.86));
+  backdrop-filter: blur(18px);
+}
+
+.jarvis-submit-grid,
+.jarvis-submit-halo {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+}
+
+.jarvis-submit-grid {
+  background-image:
+    linear-gradient(rgba(34, 211, 238, 0.14) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 211, 238, 0.12) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(circle at center, black 28%, transparent 78%);
+  animation: jarvis-grid-pan 8s linear infinite;
+}
+
+.jarvis-submit-halo {
+  background:
+    radial-gradient(circle, rgba(56, 189, 248, 0.34) 0%, rgba(56, 189, 248, 0.08) 28%, transparent 56%),
+    conic-gradient(from 90deg, rgba(14, 165, 233, 0), rgba(14, 165, 233, 0.55), rgba(34, 211, 238, 0), rgba(14, 165, 233, 0.48), rgba(14, 165, 233, 0));
+  filter: blur(18px);
+  opacity: 0.9;
+  animation: jarvis-halo-spin 5.2s linear infinite;
+}
+
+.jarvis-submit-core {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 1.5rem;
+}
+
+.jarvis-submit-rings {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: min(56vw, 21rem);
+  aspect-ratio: 1;
+}
+
+.jarvis-submit-rings span {
+  position: absolute;
+  border: 1px solid rgba(103, 232, 249, 0.72);
+  border-radius: 999px;
+  box-shadow: 0 0 28px rgba(34, 211, 238, 0.26), inset 0 0 18px rgba(14, 165, 233, 0.18);
+}
+
+.jarvis-submit-rings span:nth-child(1) {
+  inset: 0;
+  animation: jarvis-ring-rotate 3.4s linear infinite;
+}
+
+.jarvis-submit-rings span:nth-child(2) {
+  inset: 13%;
+  border-style: dashed;
+  animation: jarvis-ring-rotate-reverse 4.1s linear infinite;
+}
+
+.jarvis-submit-rings span:nth-child(3) {
+  inset: 28%;
+  border-color: rgba(125, 211, 252, 0.9);
+  animation: jarvis-pulse 1.45s ease-in-out infinite;
+}
+
+.jarvis-submit-rings::before,
+.jarvis-submit-rings::after {
+  content: '';
+  position: absolute;
+  border-radius: 999px;
+}
+
+.jarvis-submit-rings::before {
+  inset: 42%;
+  background: radial-gradient(circle, rgba(125, 211, 252, 0.96), rgba(14, 165, 233, 0.16) 72%, transparent 73%);
+  box-shadow: 0 0 36px rgba(56, 189, 248, 0.72);
+}
+
+.jarvis-submit-rings::after {
+  inset: 7%;
+  border: 1px solid rgba(186, 230, 253, 0.2);
+  animation: jarvis-scan 2s ease-in-out infinite;
+}
+
+.jarvis-submit-panel {
+  position: relative;
+  width: min(92vw, 34rem);
+  padding: 1.35rem 1.5rem;
+  border: 1px solid rgba(103, 232, 249, 0.26);
+  border-radius: 1.5rem;
+  background: linear-gradient(145deg, rgba(7, 89, 133, 0.22), rgba(2, 6, 23, 0.62));
+  box-shadow: 0 28px 80px rgba(2, 6, 23, 0.45);
+  color: #e0f2fe;
+  text-align: center;
+}
+
+.jarvis-submit-kicker {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.38em;
+  text-transform: uppercase;
+  color: #67e8f9;
+}
+
+.jarvis-submit-panel h2 {
+  margin: 0.75rem 0 0;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.jarvis-submit-panel p {
+  margin: 0.8rem auto 0;
+  max-width: 30rem;
+  font-size: 0.95rem;
+  line-height: 1.7;
+  color: rgba(224, 242, 254, 0.84);
+}
+
+.jarvis-submit-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.jarvis-submit-metrics span {
+  padding: 0.55rem 0.85rem;
+  border: 1px solid rgba(125, 211, 252, 0.24);
+  border-radius: 999px;
+  background: rgba(8, 47, 73, 0.45);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: #bae6fd;
+}
+
+@keyframes jarvis-grid-pan {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(28px, 28px, 0);
+  }
+}
+
+@keyframes jarvis-halo-spin {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  50% {
+    transform: rotate(180deg) scale(1.08);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes jarvis-ring-rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes jarvis-ring-rotate-reverse {
+  0% {
+    transform: rotate(0deg) scale(1.02);
+  }
+  100% {
+    transform: rotate(-360deg) scale(1.02);
+  }
+}
+
+@keyframes jarvis-pulse {
+  0%,
+  100% {
+    transform: scale(0.94);
+    opacity: 0.72;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 1;
+  }
+}
+
+@keyframes jarvis-scan {
+  0% {
+    transform: scale(0.88);
+    opacity: 0;
+  }
+  30% {
+    opacity: 0.95;
+  }
+  100% {
+    transform: scale(1.08);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .jarvis-submit-panel {
+    padding: 1.1rem 1rem;
+  }
+
+  .jarvis-submit-metrics {
+    gap: 0.55rem;
+  }
+
+  .jarvis-submit-metrics span {
+    font-size: 0.66rem;
+    letter-spacing: 0.16em;
+  }
+}

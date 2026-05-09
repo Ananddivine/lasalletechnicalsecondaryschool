@@ -12,7 +12,8 @@ export default function ContactPage() {
         <ScrollReveal effect="fade-left" className="rounded-[2rem] bg-gradient-to-br from-pink-100 via-orange-100 to-sky-200 p-8 ring-1 ring-slate-200 shadow-[0_30px_90px_rgba(148,163,184,0.18)] transition duration-700 hover:-translate-y-1" once={false}>
           <h2 className="text-2xl font-semibold text-slate-950">Contact details</h2>
           <div className="mt-6 space-y-4 text-slate-700">
-            <p><span className="font-semibold text-slate-950">Email:</span> info@lasalletech.edu</p>
+            <p><span className="font-semibold text-slate-950">Email us:</span> info@lasalletechnicalsecondaryschool.com</p>
+            <p><span className="font-semibold text-slate-950">Admission :</span> Admission@lasalletechnicalsecondaryschool.com</p>
             <p><span className="font-semibold text-slate-950">Phone:</span> +67571689267</p>
             <p><span className="font-semibold text-slate-950">Address:</span> G5WF+2FG, Oak St, Port Moresby National Capital District, Papua New Guinea</p>
           </div>

@@ -12,6 +12,7 @@ import AdminActivitiesPage from './pages/AdminActivitiesPage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
 import AdminLoginPage from './pages/AdminLoginPage'
 import AdminManagePage from './pages/AdminManagePage'
+import AdminConfigurationPage from './pages/AdminConfigurationPage'
 import AdmissionResultDetailPage from './pages/AdmissionResultDetailPage'
 import AdmissionResultsPage from './pages/AdmissionResultsPage'
 import AdmissionTrashPage from './pages/AdmissionTrashPage'
@@ -60,6 +61,7 @@ function AppContent() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<AdminDashboardPage />} />
             <Route path="manage" element={<AdminManagePage />} />
+            <Route path="configuration" element={<AdminConfigurationPage />} />
             <Route path="activities" element={<AdminActivitiesPage />} />
             <Route path="results" element={<AdmissionResultsPage />} />
             <Route path="trash" element={<AdmissionTrashPage />} />

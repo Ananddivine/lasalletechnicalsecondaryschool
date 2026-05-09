@@ -1,8 +1,42 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { useReactToPrint } from 'react-to-print'
 import DeleteApplicationDialog from '../components/admin/DeleteApplicationDialog'
 import useAdmissionResults from '../hooks/useAdmissionResults'
+
+function normalizeDetailRecord(record) {
+  if (!record) {
+    return null
+  }
+
+  const uploadedFiles = Array.isArray(record.uploadedFiles) ? record.uploadedFiles : []
+  const uploadedPhoto = uploadedFiles.find((file) => file?.type === 'image' && file?.url)
+
+  const address =
+    record.address ||
+    [record.sectionUnit, record.lotBuilding, record.streetName, record.suburb].filter(Boolean).join(', ')
+
+  return {
+    ...record,
+    address,
+    whatsapp:
+      record.whatsapp ||
+      record.guardianContact ||
+      record.guardianContactNumber ||
+      record.fatherContactNumber ||
+      record.motherContactNumber ||
+      '',
+    lastSchool: record.lastSchool || record.schoolLastAttended || '',
+    guardianName: record.guardianName || record.guardianFullName || '',
+    guardianContact: record.guardianContact || record.guardianContactNumber || '',
+    courseInterest: record.courseInterest || record.courseApplying || record.applyingGrade || '',
+    medicalNote: record.medicalNote || record.seriousIllness || record.physicalDisabilities || '',
+    interviewDate: record.interviewDate || record.submittedOn || '',
+    uploadedFiles,
+    checklistStatus: Array.isArray(record.checklistStatus) ? record.checklistStatus : [],
+    profilePhoto: record.profilePhoto || uploadedPhoto?.url || '',
+  }
+}
 
 function downloadFile(file) {
   const anchor = document.createElement('a')
@@ -70,8 +104,11 @@ export default function AdmissionResultDetailPage() {
   const { resultId } = useParams()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { allResults, updateResult, deleteResult, restoreResult } = useAdmissionResults()
-  const result = allResults.find((item) => item.id === resultId)
+  const { allResults, isLoading, errorMessage, updateResult, deleteResult, restoreResult } = useAdmissionResults()
+  const result = useMemo(
+    () => normalizeDetailRecord(allResults.find((item) => item.id === resultId)),
+    [allResults, resultId],
+  )
   const printRef = useRef(null)
   const isEditMode = searchParams.get('mode') === 'edit'
   const [deleteComment, setDeleteComment] = useState('')
@@ -127,6 +164,20 @@ export default function AdmissionResultDetailPage() {
       paymentStatus: result.paymentStatus,
       decision: result.decision,
       notes: result.notes,
+    })
+  }, [result])
+
+  useEffect(() => {
+    if (!result) {
+      return
+    }
+
+    console.log('[AdmissionResultDetail] photo debug', {
+      resultId: result.id,
+      applicantName: result.applicantName,
+      profilePhoto: result.profilePhoto,
+      uploadedFiles: result.uploadedFiles,
+      selectedPhotoSource: result.profilePhoto || null,
     })
   }, [result])
 
@@ -345,8 +396,32 @@ export default function AdmissionResultDetailPage() {
     `,
   })
 
+  if (isLoading) {
+    return (
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+        <p className="text-sm font-bold uppercase tracking-[0.3em] text-sky-700">Result Detail</p>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950">Loading applicant record</h1>
+        <p className="mt-3 text-sm leading-7 text-slate-600">The admissions record is being loaded from the server.</p>
+      </section>
+    )
+  }
+
   if (!result) {
-    return <Navigate to="/portal/results" replace />
+    return (
+      <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
+        <p className="text-sm font-bold uppercase tracking-[0.3em] text-amber-700">Result Detail</p>
+        <h1 className="mt-4 text-3xl font-black tracking-tight text-amber-950">Applicant record not found</h1>
+        <p className="mt-3 text-sm leading-7 text-amber-900">
+          {errorMessage || 'This admission record could not be found. It may have been removed or the page loaded before the record was available.'}
+        </p>
+        <Link
+          to="/portal/results"
+          className="mt-6 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-700"
+        >
+          Back to results
+        </Link>
+      </section>
+    )
   }
 
   const handleDraftChange = (field, value) => {
@@ -427,12 +502,31 @@ export default function AdmissionResultDetailPage() {
                 <p className="text-[11px] leading-5 text-slate-800">Issued for school admission review and applicant records.</p>
               </div>
             </div>
-            <div className="photo-box w-[6.5rem] shrink-0 border border-black p-1.5">
-              <img
-                src={displayRecord.profilePhoto}
-                alt={displayRecord.applicantName}
-                className="h-full w-full object-cover object-center"
-              />
+            <div className="photo-box flex w-[6.5rem] shrink-0 items-center justify-center border border-black p-1.5 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-700">
+              {displayRecord.profilePhoto ? (
+                <img
+                  src={displayRecord.profilePhoto}
+                  alt={displayRecord.applicantName}
+                  onLoad={(event) => {
+                    console.log('[AdmissionResultDetail] photo loaded', {
+                      resultId: displayRecord.id,
+                      src: event.currentTarget.currentSrc || event.currentTarget.src,
+                      naturalWidth: event.currentTarget.naturalWidth,
+                      naturalHeight: event.currentTarget.naturalHeight,
+                    })
+                  }}
+                  onError={(event) => {
+                    console.error('[AdmissionResultDetail] photo failed', {
+                      resultId: displayRecord.id,
+                      src: event.currentTarget.currentSrc || event.currentTarget.src,
+                      uploadedFiles: displayRecord.uploadedFiles,
+                    })
+                  }}
+                  className="h-full w-full object-cover object-center"
+                />
+              ) : (
+                <span>Photo Pending</span>
+              )}
             </div>
           </div>
 
