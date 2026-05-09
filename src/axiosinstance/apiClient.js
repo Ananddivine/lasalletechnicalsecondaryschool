@@ -1,11 +1,32 @@
 import axios from 'axios'
 import { getPortalSession, clearPortalSession } from '../data/adminPortalData'
 
+function normalizeApiBaseUrl(rawBaseUrl) {
+  const trimmedBaseUrl = rawBaseUrl?.trim()
+
+  if (!trimmedBaseUrl) {
+    return null
+  }
+
+  const baseUrlWithScheme = /^https?:\/\//i.test(trimmedBaseUrl)
+    ? trimmedBaseUrl
+    : `https://${trimmedBaseUrl}`
+
+  const normalizedUrl = new URL(baseUrlWithScheme)
+  const normalizedPath = normalizedUrl.pathname.replace(/\/$/, '')
+
+  normalizedUrl.pathname = normalizedPath.endsWith('/api')
+    ? normalizedPath || '/api'
+    : `${normalizedPath || ''}/api`
+
+  return normalizedUrl.toString().replace(/\/$/, '')
+}
+
 function resolveApiBaseUrl() {
-  const configuredBaseUrl = import.meta.env.VITE_API_BASE_URL?.trim()
+  const configuredBaseUrl = normalizeApiBaseUrl(import.meta.env.VITE_API_BASE_URL)
 
   if (configuredBaseUrl) {
-    return configuredBaseUrl.replace(/\/$/, '')
+    return configuredBaseUrl
   }
 
   if (typeof window !== 'undefined') {
