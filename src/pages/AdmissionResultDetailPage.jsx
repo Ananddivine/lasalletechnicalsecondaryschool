@@ -4,6 +4,91 @@ import { useReactToPrint } from 'react-to-print'
 import DeleteApplicationDialog from '../components/admin/DeleteApplicationDialog'
 import useAdmissionResults from '../hooks/useAdmissionResults'
 
+const explicitEditableFields = new Set([
+  'applicantName',
+  'email',
+  'whatsapp',
+  'dateOfBirth',
+  'age',
+  'gender',
+  'address',
+  'homeProvince',
+  'lastSchool',
+  'guardianName',
+  'guardianContact',
+  'courseInterest',
+  'medicalNote',
+  'interviewDate',
+  'status',
+  'reviewer',
+  'paymentStatus',
+  'decision',
+  'notes',
+])
+
+const hiddenEditableFields = new Set([
+  '_id',
+  'id',
+  'createdAt',
+  'updatedAt',
+  '__v',
+  'uploadedFiles',
+  'checklistStatus',
+  'profilePhoto',
+  'isDeleted',
+  'deletedAt',
+  'deletedReason',
+  'deletedBy',
+])
+
+function isEditableScalar(value) {
+  return value == null || ['string', 'number', 'boolean'].includes(typeof value)
+}
+
+function buildDraftFromResult(record) {
+  if (!record) {
+    return null
+  }
+
+  return Object.entries(record).reduce((draft, [key, value]) => {
+    if (hiddenEditableFields.has(key) || !isEditableScalar(value)) {
+      return draft
+    }
+
+    draft[key] = value ?? ''
+    return draft
+  }, {})
+}
+
+function formatEditableLabel(key) {
+  return key
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/^./, (value) => value.toUpperCase())
+}
+
+function getEditableInputType(key, value) {
+  if (typeof value === 'boolean') {
+    return 'boolean'
+  }
+
+  if (['decision', 'notes', 'medicalNote', 'address'].includes(key)) {
+    return 'textarea'
+  }
+
+  if (key.toLowerCase().includes('date')) {
+    return 'date'
+  }
+
+  if (typeof value === 'number' || ['age'].includes(key)) {
+    return 'number'
+  }
+
+  return 'text'
+}
+
 function normalizeDetailRecord(record) {
   if (!record) {
     return null
@@ -49,7 +134,7 @@ function downloadFile(file) {
 
 function PrintableSectionHeading({ children }) {
   return (
-    <div className="section-heading border-b border-black pb-2 text-center text-[12px] font-bold uppercase tracking-[0.2em] text-slate-950">
+    <div className="section-heading border border-sky-300 bg-sky-100 px-3 py-2 text-center text-[12px] font-bold uppercase tracking-[0.2em] text-sky-950">
       {children}
     </div>
   )
@@ -110,62 +195,53 @@ export default function AdmissionResultDetailPage() {
     [allResults, resultId],
   )
   const printRef = useRef(null)
+  const editFormRef = useRef(null)
   const isEditMode = searchParams.get('mode') === 'edit'
   const [deleteComment, setDeleteComment] = useState('')
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [draft, setDraft] = useState(() =>
-    result
-      ? {
-          applicantName: result.applicantName,
-          email: result.email,
-          whatsapp: result.whatsapp,
-          dateOfBirth: result.dateOfBirth,
-          age: String(result.age),
-          gender: result.gender,
-          address: result.address,
-          homeProvince: result.homeProvince,
-          lastSchool: result.lastSchool,
-          guardianName: result.guardianName,
-          guardianContact: result.guardianContact,
-          courseInterest: result.courseInterest,
-          medicalNote: result.medicalNote,
-          interviewDate: result.interviewDate,
-          status: result.status,
-          reviewer: result.reviewer,
-          paymentStatus: result.paymentStatus,
-          decision: result.decision,
-          notes: result.notes,
-        }
-      : null,
-  )
+  const [draft, setDraft] = useState(() => buildDraftFromResult(result))
+  const [editPhotoFile, setEditPhotoFile] = useState(null)
+  const [editPhotoPreviewUrl, setEditPhotoPreviewUrl] = useState('')
+  const [checklistDraft, setChecklistDraft] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     if (!result) {
       return
     }
 
-    setDraft({
-      applicantName: result.applicantName,
-      email: result.email,
-      whatsapp: result.whatsapp,
-      dateOfBirth: result.dateOfBirth,
-      age: String(result.age),
-      gender: result.gender,
-      address: result.address,
-      homeProvince: result.homeProvince,
-      lastSchool: result.lastSchool,
-      guardianName: result.guardianName,
-      guardianContact: result.guardianContact,
-      courseInterest: result.courseInterest,
-      medicalNote: result.medicalNote,
-      interviewDate: result.interviewDate,
-      status: result.status,
-      reviewer: result.reviewer,
-      paymentStatus: result.paymentStatus,
-      decision: result.decision,
-      notes: result.notes,
-    })
+    setDraft(buildDraftFromResult(result))
+    setChecklistDraft(Array.isArray(result.checklistStatus) ? result.checklistStatus.join('\n') : '')
+    setEditPhotoFile(null)
+    setSaveError('')
   }, [result])
+
+  useEffect(() => {
+    if (!editPhotoFile) {
+      setEditPhotoPreviewUrl('')
+      return undefined
+    }
+
+    const objectUrl = URL.createObjectURL(editPhotoFile)
+    setEditPhotoPreviewUrl(objectUrl)
+
+    return () => {
+      URL.revokeObjectURL(objectUrl)
+    }
+  }, [editPhotoFile])
+
+  useEffect(() => {
+    if (!isEditMode || !editFormRef.current) {
+      return
+    }
+
+    const frame = window.requestAnimationFrame(() => {
+      editFormRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+
+    return () => window.cancelAnimationFrame(frame)
+  }, [isEditMode, result?.id])
 
   useEffect(() => {
     if (!result) {
@@ -185,6 +261,16 @@ export default function AdmissionResultDetailPage() {
     () => (isEditMode && draft ? { ...result, ...draft, age: Number(draft.age) || draft.age } : result),
     [draft, isEditMode, result],
   )
+
+  const additionalEditableFields = useMemo(() => {
+    if (!draft) {
+      return []
+    }
+
+    return Object.keys(draft)
+      .filter((key) => !explicitEditableFields.has(key))
+      .sort((left, right) => left.localeCompare(right))
+  }, [draft])
 
   const printableSections = useMemo(() => {
     if (!displayRecord) {
@@ -264,18 +350,20 @@ export default function AdmissionResultDetailPage() {
       }
       .print-sheet {
         width: 210mm;
-        height: 297mm;
+        min-height: 297mm;
         box-sizing: border-box;
         padding: 8mm;
         margin: 0;
-        page-break-after: always;
-        break-after: page;
         background: white;
-        overflow: hidden;
         box-shadow: none !important;
         border-radius: 0 !important;
       }
-      .print-sheet:last-child {
+      .print-sheet--page {
+        page-break-after: always;
+        break-after: page;
+        overflow: hidden;
+      }
+      .print-sheet--page:last-child {
         page-break-after: auto;
         break-after: auto;
       }
@@ -428,12 +516,43 @@ export default function AdmissionResultDetailPage() {
     setDraft((currentValue) => ({ ...currentValue, [field]: value }))
   }
 
-  const handleSaveChanges = () => {
-    updateResult(result.id, {
-      ...draft,
-      age: Number(draft.age) || result.age,
-    })
-    navigate(`/portal/results/${result.id}`, { replace: true })
+  const handleSaveChanges = async () => {
+    if (!draft) {
+      return
+    }
+
+    try {
+      setIsSaving(true)
+      setSaveError('')
+
+      const payload = new FormData()
+
+      Object.entries(draft).forEach(([key, value]) => {
+        payload.append(key, value == null ? '' : String(value))
+      })
+
+      payload.set('age', String(Number(draft.age) || result.age || ''))
+      payload.set(
+        'checklistStatus',
+        JSON.stringify(
+          checklistDraft
+            .split(/\r?\n/)
+            .map((item) => item.trim())
+            .filter(Boolean),
+        ),
+      )
+
+      if (editPhotoFile) {
+        payload.append('profilePhoto', editPhotoFile)
+      }
+
+      await updateResult(result.id, payload)
+      navigate(`/portal/results/${result.id}`, { replace: true })
+    } catch (error) {
+      setSaveError(error.message || 'Unable to update the applicant record.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -455,7 +574,11 @@ export default function AdmissionResultDetailPage() {
         </div>
       </div>
 
-      <div className="print-hidden flex flex-wrap gap-4">
+      <div
+        className={`print-hidden flex flex-wrap gap-4 transition duration-200 ${
+          isEditMode ? 'pointer-events-none blur-[2px] opacity-45' : ''
+        }`}
+      >
         {!result.isDeleted ? (
           <>
             <Link
@@ -492,7 +615,11 @@ export default function AdmissionResultDetailPage() {
       </div>
 
       <div ref={printRef} className="space-y-6 bg-slate-100/60 print:space-y-0 print:bg-white">
-        <div className="print-sheet rounded-[1rem] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)] print:rounded-none print:shadow-none">
+        <div
+          className={`print-sheet print-sheet--page rounded-[1rem] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition duration-200 print:rounded-none print:shadow-none ${
+            isEditMode ? 'pointer-events-none blur-[3px] opacity-45' : ''
+          }`}
+        >
           <div className="print-header print-block-avoid border-b-[1.5px] border-black pb-3">
             <div className="flex-1">
               <div>
@@ -553,7 +680,11 @@ export default function AdmissionResultDetailPage() {
           </div>
         </div>
 
-        <div className="print-sheet rounded-[1rem] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)] print:rounded-none print:shadow-none">
+        <div
+          className={`print-sheet rounded-[1rem] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)] transition duration-200 print:rounded-none print:shadow-none ${
+            isEditMode ? 'pointer-events-none blur-[3px] opacity-45' : ''
+          }`}
+        >
           <div className="print-block-avoid">
             <PrintableSectionHeading>Admissions Decision</PrintableSectionHeading>
             <div className="section-tight border border-black px-3 py-3 text-[11px] leading-5 text-slate-950">
@@ -619,11 +750,7 @@ export default function AdmissionResultDetailPage() {
             </div>
           </div>
 
-        </div>
-
-        <div className="print-sheet rounded-[1rem] bg-white shadow-[0_10px_30px_rgba(15,23,42,0.06)] print:rounded-none print:shadow-none">
-
-          <div className="print-block-avoid">
+          <div className="section print-block-avoid">
             <PrintableSectionHeading>Checklist Verification</PrintableSectionHeading>
             <table className="print-table section-tight mt-3 w-full border-collapse table-fixed text-[12px] text-slate-950">
               <thead>
@@ -686,8 +813,39 @@ export default function AdmissionResultDetailPage() {
         <div className="print-hidden mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
           <div className="space-y-6">
             {isEditMode ? (
-              <div className="print-hidden border border-slate-300 p-5">
+              <div
+                ref={editFormRef}
+                className="print-hidden relative z-10 border border-sky-300 bg-white p-5 shadow-[0_30px_70px_rgba(14,165,233,0.18)] ring-4 ring-sky-100"
+              >
                 <h3 className="text-xl font-black tracking-tight text-slate-950">Edit Applicant Record</h3>
+                <p className="mt-2 text-sm leading-6 text-slate-600">
+                  Update the admission record fields below. Photo changes are uploaded with the rest of the edits.
+                </p>
+                <div className="mt-5 grid gap-4 md:grid-cols-[220px_1fr] md:items-start">
+                  <div className="space-y-3 border border-slate-300 bg-slate-50 p-4">
+                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">Applicant photo</p>
+                    <div className="flex h-40 items-center justify-center overflow-hidden border border-slate-300 bg-white">
+                      {editPhotoPreviewUrl || displayRecord.profilePhoto ? (
+                        <img
+                          src={editPhotoPreviewUrl || displayRecord.profilePhoto}
+                          alt={displayRecord.applicantName}
+                          className="h-full w-full object-cover object-center"
+                        />
+                      ) : (
+                        <span className="px-4 text-center text-sm text-slate-500">No photo uploaded</span>
+                      )}
+                    </div>
+                    <label className="block">
+                      <span className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">Replace photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(event) => setEditPhotoFile(event.target.files?.[0] || null)}
+                        className="mt-2 block w-full text-sm text-slate-700 file:mr-4 file:rounded-full file:border-0 file:bg-slate-950 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white"
+                      />
+                    </label>
+                  </div>
+                  <div>
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">Applicant name</span>
@@ -736,12 +894,15 @@ export default function AdmissionResultDetailPage() {
                   </label>
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">Gender</span>
-                    <input
-                      type="text"
+                    <select
                       value={draft?.gender ?? ''}
                       onChange={(event) => handleDraftChange('gender', event.target.value)}
                       className="mt-2 w-full border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500"
-                    />
+                    >
+                      <option value="">Select gender</option>
+                      <option value="Male">Male</option>
+                      <option value="Female">Female</option>
+                    </select>
                   </label>
                   <label className="block md:col-span-2">
                     <span className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">Address</span>
@@ -864,14 +1025,83 @@ export default function AdmissionResultDetailPage() {
                       className="mt-2 w-full border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500"
                     />
                   </label>
+                  <label className="block md:col-span-2">
+                    <span className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">Checklist verification</span>
+                    <textarea
+                      rows={4}
+                      value={checklistDraft}
+                      onChange={(event) => setChecklistDraft(event.target.value)}
+                      className="mt-2 w-full border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500"
+                      placeholder="Enter one checklist item per line"
+                    />
+                  </label>
+                  {additionalEditableFields.length > 0 ? (
+                    <div className="md:col-span-2 mt-2 border border-slate-300 bg-slate-50 p-4">
+                      <h4 className="text-sm font-bold uppercase tracking-[0.22em] text-slate-700">Additional application fields</h4>
+                      <div className="mt-4 grid gap-4 md:grid-cols-2">
+                        {additionalEditableFields.map((fieldKey) => {
+                          const inputType = getEditableInputType(fieldKey, draft[fieldKey])
+                          const fieldLabel = formatEditableLabel(fieldKey)
+
+                          if (inputType === 'textarea') {
+                            return (
+                              <label key={fieldKey} className="block md:col-span-2">
+                                <span className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">{fieldLabel}</span>
+                                <textarea
+                                  rows={3}
+                                  value={draft[fieldKey] ?? ''}
+                                  onChange={(event) => handleDraftChange(fieldKey, event.target.value)}
+                                  className="mt-2 w-full border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500"
+                                />
+                              </label>
+                            )
+                          }
+
+                          if (inputType === 'boolean') {
+                            return (
+                              <label key={fieldKey} className="block">
+                                <span className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">{fieldLabel}</span>
+                                <select
+                                  value={String(Boolean(draft[fieldKey]))}
+                                  onChange={(event) => handleDraftChange(fieldKey, event.target.value === 'true')}
+                                  className="mt-2 w-full border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500"
+                                >
+                                  <option value="true">True</option>
+                                  <option value="false">False</option>
+                                </select>
+                              </label>
+                            )
+                          }
+
+                          return (
+                            <label key={fieldKey} className="block">
+                              <span className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">{fieldLabel}</span>
+                              <input
+                                type={inputType}
+                                value={draft[fieldKey] ?? ''}
+                                onChange={(event) => handleDraftChange(fieldKey, inputType === 'number' ? event.target.value : event.target.value)}
+                                className="mt-2 w-full border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-500"
+                              />
+                            </label>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
+                {saveError ? (
+                  <div className="mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+                    {saveError}
+                  </div>
+                ) : null}
                 <div className="mt-5 flex flex-wrap gap-3">
                   <button
                     type="button"
                     onClick={handleSaveChanges}
+                    disabled={isSaving}
                     className="rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-700"
                   >
-                    Save changes
+                    {isSaving ? 'Saving...' : 'Save changes'}
                   </button>
                   <Link
                     to={`/portal/results/${result.id}`}
@@ -880,10 +1110,16 @@ export default function AdmissionResultDetailPage() {
                     Cancel edit
                   </Link>
                 </div>
+                  </div>
+                </div>
               </div>
             ) : null}
 
-            <div className="border border-slate-300 p-5">
+            <div
+              className={`border border-slate-300 p-5 transition duration-200 ${
+                isEditMode ? 'pointer-events-none blur-[3px] opacity-45' : ''
+              }`}
+            >
               <h3 className="border-b border-slate-300 pb-3 text-lg font-black uppercase tracking-[0.18em] text-slate-900">
                 Admissions Decision
               </h3>
@@ -891,7 +1127,11 @@ export default function AdmissionResultDetailPage() {
               <p className="mt-4 text-sm leading-7 text-slate-700">{displayRecord.notes}</p>
             </div>
 
-            <div className="border border-slate-300 p-5">
+            <div
+              className={`border border-slate-300 p-5 transition duration-200 ${
+                isEditMode ? 'pointer-events-none blur-[3px] opacity-45' : ''
+              }`}
+            >
               <h3 className="border-b border-slate-300 pb-3 text-lg font-black uppercase tracking-[0.18em] text-slate-900">
                 Checklist Verification
               </h3>
@@ -907,7 +1147,11 @@ export default function AdmissionResultDetailPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="border border-slate-300 p-5">
+            <div
+              className={`border border-slate-300 p-5 transition duration-200 ${
+                isEditMode ? 'pointer-events-none blur-[3px] opacity-45' : ''
+              }`}
+            >
               <h3 className="border-b border-slate-300 pb-3 text-lg font-black uppercase tracking-[0.18em] text-slate-900">
                 Review Information
               </h3>
@@ -930,7 +1174,11 @@ export default function AdmissionResultDetailPage() {
               </div>
             </div>
 
-            <div className="border border-slate-300 p-5">
+            <div
+              className={`border border-slate-300 p-5 transition duration-200 ${
+                isEditMode ? 'pointer-events-none blur-[3px] opacity-45' : ''
+              }`}
+            >
               <h3 className="border-b border-slate-300 pb-3 text-lg font-black uppercase tracking-[0.18em] text-slate-900">
                 Authorization
               </h3>
@@ -954,7 +1202,11 @@ export default function AdmissionResultDetailPage() {
           </div>
         </div>
 
-        <div className="mt-6 border border-slate-300 p-5 print-hidden">
+        <div
+          className={`mt-6 border border-slate-300 p-5 print-hidden transition duration-200 ${
+            isEditMode ? 'pointer-events-none blur-[3px] opacity-45' : ''
+          }`}
+        >
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h2 className="text-2xl font-black tracking-tight text-slate-950">Uploaded files</h2>
             <span className="rounded-full bg-slate-950 px-4 py-2 text-xs font-bold uppercase tracking-[0.24em] text-white">
@@ -994,7 +1246,11 @@ export default function AdmissionResultDetailPage() {
           </div>
         </div>
 
-        <div className="print-hidden flex flex-wrap gap-4">
+        <div
+          className={`print-hidden flex flex-wrap gap-4 transition duration-200 ${
+            isEditMode ? 'pointer-events-none blur-[2px] opacity-45' : ''
+          }`}
+        >
           <button
             type="button"
             onClick={handlePrint}

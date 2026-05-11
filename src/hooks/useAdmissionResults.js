@@ -63,7 +63,11 @@ export default function useAdmissionResults() {
       return
     }
 
-    const nextValue = typeof updater === 'function' ? updater(currentResult) : { ...currentResult, ...updater }
+    const nextValue = typeof updater === 'function'
+      ? updater(currentResult)
+      : updater instanceof FormData
+        ? updater
+        : { ...currentResult, ...updater }
     const response = await updateApplication(resultId, nextValue)
 
     setAllResults((currentValue) =>

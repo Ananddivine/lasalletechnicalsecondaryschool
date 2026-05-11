@@ -48,6 +48,12 @@ const gradeBaseSections = (form) => [
         options: form.reasonOptions,
       },
       {
+        name: 'gender',
+        label: 'Gender',
+        type: 'radio',
+        options: form.genderOptions,
+      },
+      {
         name: 'applyingGrade',
         label: 'What Grade are you applying?',
         defaultValue: form.defaults?.applyingGrade ?? '',

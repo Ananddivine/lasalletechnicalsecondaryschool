@@ -7,7 +7,7 @@ import {
 } from '../lib/api'
 import { getPortalSession, portalPageOptions, portalAccessByRole } from '../data/adminPortalData'
 
-const roleOptions = ['admin', 'developer', 'manager', 'viewer', 'stemofficer']
+const roleOptions = ['admin', 'developer', 'manager', 'viewer', 'admissionstaff']
 
 const emptyForm = {
   id: null,

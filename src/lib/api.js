@@ -91,7 +91,15 @@ export function deletePortalUser(userId) {
 }
 
 export function updateApplication(resultId, updates) {
-  return apiClient.patch(`/applications/${resultId}`, updates).then((response) => response.data).catch((error) => {
+  const requestConfig = updates instanceof FormData
+    ? {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    : undefined
+
+  return apiClient.patch(`/applications/${resultId}`, updates, requestConfig).then((response) => response.data).catch((error) => {
     throw new Error(getErrorMessage(error))
   })
 }

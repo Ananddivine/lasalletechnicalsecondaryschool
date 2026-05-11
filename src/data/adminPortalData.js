@@ -19,7 +19,7 @@ export const portalAccessByRole = {
   developer: ['dashboard', 'manage', 'results', 'trash', 'activities', 'configuration'],
   manager: ['dashboard', 'manage', 'results', 'activities'],
   viewer: ['dashboard', 'results'],
-  stemofficer: ['dashboard', 'results', 'activities'],
+  admissionstaff: ['dashboard', 'results', 'activities'],
 }
 
 export const portalPageOptions = [

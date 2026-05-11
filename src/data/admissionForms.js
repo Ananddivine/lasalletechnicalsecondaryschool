@@ -11,6 +11,7 @@ const gradeChecklistWarning =
   'These documents will be verified and kept for school records. Submission of false or forged documents will lead to termination, expulsion, and legal action.'
 
 const gradeCommonFields = {
+  genderOptions: ['Female', 'Male'],
   reasonOptions: ['Selected', 'Interested'],
   sacramentOptions: ['Baptism', 'Holy Communion', 'Confirmation'],
   transportOptions: ['PMV', 'Own Vehicle', 'Company Car', 'Walk (By foot)'],
