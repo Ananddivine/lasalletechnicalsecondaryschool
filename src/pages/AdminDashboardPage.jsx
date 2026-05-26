@@ -163,11 +163,11 @@ export default function AdminDashboardPage() {
   const recentDecisions = dashboardData?.recentDecisions || results.slice(0, 4)
 
   return (
-    <section className="space-y-8">
+    <section className="space-y-8 ">
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
           <p className="text-sm font-bold uppercase tracking-[0.35em] text-sky-700">Admissions Dashboard</p>
-          <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-950">
+          <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-950 font-poppins">
             Monitor the full admission process from first application to final decision.
           </h1>
           <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-600">
@@ -191,7 +191,7 @@ export default function AdminDashboardPage() {
         {dashboardStats.map((stat) => (
           <article
             key={stat.label}
-            className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]"
+            className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-[0_10px_30px_rgba(15,23,42,0.10),0_25px_60px_rgba(15,23,42,0.18)]"
           >
             <p className="text-sm font-bold uppercase tracking-[0.28em] text-slate-500">{stat.label}</p>
             <p className="mt-4 text-4xl font-black tracking-tight text-slate-950">{stat.value}</p>

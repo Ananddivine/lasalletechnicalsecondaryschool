@@ -8,7 +8,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        poppins: ["Poppins", "sans-serif"],
+        poppins: ["Poppins", "sans-serif"],  
+        urbanist: ['Urbanist', 'sans-serif'],
+          playfair: ['"Playfair Display"', 'serif'],
       },
       keyframes: {
         'gradient-x': {

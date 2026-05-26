@@ -1,13 +1,24 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { DateRange } from 'react-date-range'
 import { format } from 'date-fns'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import DeleteApplicationDialog from '../components/admin/DeleteApplicationDialog'
 import useAdmissionResults from '../hooks/useAdmissionResults'
 import 'react-date-range/dist/styles.css'
 import 'react-date-range/dist/theme/default.css'
 
 const resultsPerPage = 15
+const actionMenuWidth = 192
+const actionMenuHeight = 232
+const actionMenuOffset = 12
+const viewportPadding = 12
+
+const queueLabels = {
+  documents: 'Document checks',
+  payments: 'Payment follow-up',
+  routing: 'Interview routing',
+}
 
 function getStatusStyles(status) {
   switch (status) {
@@ -24,13 +35,17 @@ function getStatusStyles(status) {
   }
 }
 
-function ActionMenu({ isVisible, onView, onEmail, onWhatsApp, onEdit, onDelete }) {
-  if (!isVisible) {
+function ActionMenu({ isVisible, menuRef, position, onView, onEmail, onWhatsApp, onEdit, onDelete }) {
+  if (!isVisible || !position || typeof document === 'undefined') {
     return null
   }
 
-  return (
-    <div className="absolute right-0 z-20 w-48 rounded-[1.35rem] border border-slate-200 bg-white p-2 shadow-[0_22px_50px_rgba(15,23,42,0.16)]">
+  return createPortal(
+    <div
+      ref={menuRef}
+      className="fixed z-[80] w-48 rounded-[1.35rem] border border-slate-200 bg-white p-2 shadow-[0_22px_50px_rgba(15,23,42,0.16)]"
+      style={{ top: `${position.top}px`, left: `${position.left}px` }}
+    >
       {[
         ['View', onView],
         ['Email', onEmail],
@@ -47,16 +62,18 @@ function ActionMenu({ isVisible, onView, onEmail, onWhatsApp, onEdit, onDelete }
           {label}
         </button>
       ))}
-    </div>
+    </div>,
+    document.body,
   )
 }
 
 export default function AdmissionResultsPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const { results, deleteResult } = useAdmissionResults()
-  const [searchValue, setSearchValue] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')
-  const [formFilter, setFormFilter] = useState('all')
+  const [searchValue, setSearchValue] = useState(() => searchParams.get('search') || '')
+  const [statusFilter, setStatusFilter] = useState(() => searchParams.get('status') || 'all')
+  const [formFilter, setFormFilter] = useState(() => searchParams.get('form') || 'all')
   const [showDateFilter, setShowDateFilter] = useState(false)
   const [clickCount, setClickCount] = useState(0)
   const [isDateFilterApplied, setIsDateFilterApplied] = useState(false)
@@ -67,9 +84,84 @@ export default function AdmissionResultsPage() {
   })
   const [currentPage, setCurrentPage] = useState(1)
   const [openActionId, setOpenActionId] = useState(null)
-  const [hoveredActionId, setHoveredActionId] = useState(null)
+  const [actionMenuPosition, setActionMenuPosition] = useState(null)
   const [pendingDeleteResult, setPendingDeleteResult] = useState(null)
   const [deleteComment, setDeleteComment] = useState('')
+  const actionButtonRefs = useRef(new Map())
+  const actionMenuRef = useRef(null)
+  const queueFilter = searchParams.get('queue') || ''
+
+  useEffect(() => {
+    setSearchValue(searchParams.get('search') || '')
+    setStatusFilter(searchParams.get('status') || 'all')
+    setFormFilter(searchParams.get('form') || 'all')
+    setCurrentPage(1)
+  }, [searchParams])
+
+  const updateActionMenuPosition = (resultId) => {
+    const button = actionButtonRefs.current.get(resultId)
+
+    if (!button) {
+      return
+    }
+
+    const buttonBounds = button.getBoundingClientRect()
+    const viewportWidth = window.innerWidth
+    const viewportHeight = window.innerHeight
+    const shouldOpenUpward =
+      viewportHeight - buttonBounds.bottom < actionMenuHeight + actionMenuOffset &&
+      buttonBounds.top > actionMenuHeight + actionMenuOffset
+    const top = shouldOpenUpward
+      ? Math.max(viewportPadding, buttonBounds.top - actionMenuHeight - actionMenuOffset)
+      : Math.min(
+          viewportHeight - actionMenuHeight - viewportPadding,
+          buttonBounds.bottom + actionMenuOffset,
+        )
+    const left = Math.min(
+      Math.max(viewportPadding, buttonBounds.right - actionMenuWidth),
+      viewportWidth - actionMenuWidth - viewportPadding,
+    )
+
+    setActionMenuPosition({ top, left })
+  }
+
+  useEffect(() => {
+    if (!openActionId) {
+      return undefined
+    }
+
+    const handleViewportChange = () => updateActionMenuPosition(openActionId)
+    const handlePointerDown = (event) => {
+      const activeButton = actionButtonRefs.current.get(openActionId)
+
+      if (activeButton?.contains(event.target) || actionMenuRef.current?.contains(event.target)) {
+        return
+      }
+
+      setOpenActionId(null)
+      setActionMenuPosition(null)
+    }
+
+    handleViewportChange()
+    window.addEventListener('resize', handleViewportChange)
+    window.addEventListener('scroll', handleViewportChange, true)
+    document.addEventListener('mousedown', handlePointerDown)
+
+    return () => {
+      window.removeEventListener('resize', handleViewportChange)
+      window.removeEventListener('scroll', handleViewportChange, true)
+      document.removeEventListener('mousedown', handlePointerDown)
+    }
+  }, [openActionId])
+
+  const registerActionButton = (resultId) => (element) => {
+    if (element) {
+      actionButtonRefs.current.set(resultId, element)
+      return
+    }
+
+    actionButtonRefs.current.delete(resultId)
+  }
 
   const closeDeleteDialog = () => {
     setPendingDeleteResult(null)
@@ -87,7 +179,22 @@ export default function AdmissionResultsPage() {
       pendingDeleteResult.reviewer || 'Admissions Office',
     )
     setOpenActionId(null)
+    setActionMenuPosition(null)
     closeDeleteDialog()
+  }
+
+  const toggleActionMenu = (resultId) => {
+    setOpenActionId((currentValue) => {
+      const nextValue = currentValue === resultId ? null : resultId
+
+      if (nextValue) {
+        updateActionMenuPosition(nextValue)
+      } else {
+        setActionMenuPosition(null)
+      }
+
+      return nextValue
+    })
   }
 
   const toggleDateFilter = () => {
@@ -137,6 +244,15 @@ export default function AdmissionResultsPage() {
 
         const matchesStatus = statusFilter === 'all' || result.status === statusFilter
         const matchesForm = formFilter === 'all' || result.formTitle === formFilter
+        const matchesQueue =
+          !queueFilter ||
+          (queueFilter === 'documents' && (!result.uploadedFiles?.length || ['Pending', 'Review'].includes(result.status))) ||
+          (queueFilter === 'payments' && !result.paymentStatus.toLowerCase().startsWith('paid')) ||
+          (queueFilter === 'routing' && (
+            String(result.applicantType || '').toLowerCase().includes('transfer') ||
+            String(result.applicantType || '').toLowerCase().includes('repeat') ||
+            result.status === 'Review'
+          ))
         const matchesDate =
           !isDateFilterApplied ||
           (() => {
@@ -147,9 +263,9 @@ export default function AdmissionResultsPage() {
             return submittedDate >= start && submittedDate <= end
           })()
 
-        return matchesSearch && matchesStatus && matchesForm && matchesDate
+        return matchesSearch && matchesStatus && matchesForm && matchesQueue && matchesDate
       }),
-    [results, searchValue, statusFilter, formFilter, isDateFilterApplied, dateRange],
+    [results, searchValue, statusFilter, formFilter, queueFilter, isDateFilterApplied, dateRange],
   )
 
   const totalPages = Math.max(1, Math.ceil(filteredResults.length / resultsPerPage))
@@ -173,7 +289,11 @@ export default function AdmissionResultsPage() {
 
   return (
     <section className="space-y-8">
-      
+      {queueFilter ? (
+        <div className="rounded-[1.5rem] border border-sky-200 bg-sky-50 px-5 py-4 text-sm text-sky-950">
+          Viewing the <span className="font-semibold">{queueLabels[queueFilter] || 'selected'}</span> queue.
+        </div>
+      ) : null}
 
       <div className="serial-light-frame rounded-[2rem] p-[2px]">
         <div className="serial-light-panel overflow-hidden rounded-[calc(2rem-2px)] bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(241,245,249,0.94))] shadow-[0_28px_80px_rgba(15,23,42,0.14)]">
@@ -309,30 +429,20 @@ export default function AdmissionResultsPage() {
                     <td className="px-6 py-5 text-sm text-slate-700">{result.paymentStatus}</td>
                     <td className="px-6 py-5 text-sm text-slate-700">{result.reviewer}</td>
                     <td className="px-6 py-5">
-                      <div
-                        className="relative"
-                        onMouseEnter={() => setHoveredActionId(result.id)}
-                        onMouseLeave={() => {
-                          setHoveredActionId(null)
-                          if (openActionId !== result.id) {
-                            setOpenActionId(null)
-                          }
-                        }}
-                      >
+                      <div className="relative">
                         <button
+                          ref={registerActionButton(result.id)}
                           type="button"
                           aria-label={`Settings for ${result.applicantName}`}
-                          onClick={() =>
-                            setOpenActionId((currentValue) =>
-                              currentValue === result.id ? null : result.id,
-                            )
-                          }
+                          onClick={() => toggleActionMenu(result.id)}
                           className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-slate-950 text-lg font-black text-white transition hover:bg-sky-700"
                         >
                           ⚙
                         </button>
                         <ActionMenu
-                          isVisible={openActionId === result.id || hoveredActionId === result.id}
+                          isVisible={openActionId === result.id}
+                          menuRef={actionMenuRef}
+                          position={actionMenuPosition}
                           onView={() => navigate(`/portal/results/${result.id}`)}
                           onEmail={() =>
                             window.open(

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   adminSidebarSections,
@@ -10,7 +10,7 @@ import {
   resolvePortalPermission,
   setPortalSession,
 } from '../../data/adminPortalData'
-import { verifyPortalSession } from '../../lib/api'
+import { fetchMailboxSummary, verifyPortalSession } from '../../lib/api'
 
 function SidebarToggleIcon({ expanded }) {
   return expanded ? (
@@ -110,9 +110,19 @@ const routeTitles = {
   '/portal/dashboard': 'Admissions Dashboard',
   '/portal/manage': 'Manage Admissions',
   '/portal/activities': 'Admissions Activities',
+  '/portal/mailbox': 'Mailbox',
   '/portal/results': 'Admission Results',
   '/portal/trash': 'Deleted Applications',
   '/portal/configuration': 'Portal Configuration',
+}
+
+function NotificationBellIcon() {
+  return (
+    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M6 9a6 6 0 1 1 12 0v4.5l1.8 2.8c.2.3 0 .7-.4.7H4.6c-.4 0-.6-.4-.4-.7L6 13.5z" />
+      <path d="M10 19a2 2 0 0 0 4 0" />
+    </svg>
+  )
 }
 
 function AdminAvatar({ session }) {
@@ -139,6 +149,9 @@ export default function AdminLayout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isSidebarPinned, setIsSidebarPinned] = useState(true)
   const [isSidebarHovered, setIsSidebarHovered] = useState(false)
+  const [mailboxSummary, setMailboxSummary] = useState(null)
+  const [isMailboxMenuOpen, setIsMailboxMenuOpen] = useState(false)
+  const mailboxMenuRef = useRef(null)
   const currentToken = session?.token || ''
 
   useEffect(() => {
@@ -184,6 +197,57 @@ export default function AdminLayout() {
     }
   }, [currentToken, navigate])
 
+  const refreshMailbox = () => {
+    if (!currentToken) {
+      setMailboxSummary(null)
+      return Promise.resolve()
+    }
+
+    return fetchMailboxSummary()
+      .then((response) => {
+        setMailboxSummary(response)
+      })
+      .catch(() => {
+        setMailboxSummary(null)
+      })
+  }
+
+  useEffect(() => {
+    if (!currentToken) {
+      setMailboxSummary(null)
+      return undefined
+    }
+
+    refreshMailbox()
+    const intervalId = window.setInterval(() => {
+      refreshMailbox()
+    }, 60000)
+
+    return () => {
+      window.clearInterval(intervalId)
+    }
+  }, [currentToken])
+
+  useEffect(() => {
+    if (!isMailboxMenuOpen) {
+      return undefined
+    }
+
+    const handlePointerDown = (event) => {
+      if (mailboxMenuRef.current?.contains(event.target)) {
+        return
+      }
+
+      setIsMailboxMenuOpen(false)
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+    }
+  }, [isMailboxMenuOpen])
+
   const pageTitle = useMemo(() => {
     if (location.pathname.startsWith('/portal/results/')) {
       return 'Admission Result Detail'
@@ -205,6 +269,7 @@ export default function AdminLayout() {
 
   const currentPagePermission = resolvePortalPermission(location.pathname)
   const firstAllowedPath = getFirstPortalPath(session)
+  const unreadCount = mailboxSummary?.unreadCount || 0
 
   if (!session) {
     return <Navigate to="/portal/login" replace />
@@ -365,6 +430,64 @@ export default function AdminLayout() {
               </div>
 
               <div className="flex items-center gap-3">
+                <div className="relative" ref={mailboxMenuRef}>
+                  <button
+                    type="button"
+                    onClick={() => setIsMailboxMenuOpen((currentValue) => !currentValue)}
+                    className="relative inline-flex h-12 w-12 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-slate-950 hover:text-slate-950"
+                    aria-label="Open mailbox"
+                  >
+                    <NotificationBellIcon />
+                    {unreadCount > 0 ? (
+                      <span className="absolute -right-1 -top-1 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold text-white shadow-[0_10px_22px_rgba(244,63,94,0.35)]">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    ) : null}
+                  </button>
+
+                  {isMailboxMenuOpen ? (
+                    <div className="absolute right-0 top-full z-40 mt-3 w-[23rem] rounded-[1.75rem] border border-slate-200 bg-white p-4 shadow-[0_24px_60px_rgba(15,23,42,0.16)]">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">Mailbox</p>
+                          <h3 className="mt-2 text-lg font-black tracking-tight text-slate-950">{session.email}</h3>
+                        </div>
+                        <span className="rounded-full bg-sky-100 px-3 py-2 text-xs font-bold uppercase tracking-[0.18em] text-sky-900">
+                          {unreadCount} unread
+                        </span>
+                      </div>
+
+                      <div className="mt-4 space-y-3">
+                        {(mailboxSummary?.recentUnread || []).length > 0 ? mailboxSummary.recentUnread.map((message) => (
+                          <button
+                            key={message.uid}
+                            type="button"
+                            onClick={() => {
+                              setIsMailboxMenuOpen(false)
+                              navigate(`/portal/mailbox?messageUid=${message.uid}`)
+                            }}
+                            className="block w-full rounded-[1.35rem] border border-slate-200 bg-slate-50 px-4 py-4 text-left transition hover:border-sky-300 hover:bg-sky-50"
+                          >
+                            <p className="text-sm font-semibold text-slate-950">{message.subject}</p>
+                            <p className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">{message.from}</p>
+                          </button>
+                        )) : (
+                          <div className="rounded-[1.35rem] border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-600">
+                            No unread email at the moment.
+                          </div>
+                        )}
+                      </div>
+
+                      <Link
+                        to="/portal/mailbox"
+                        onClick={() => setIsMailboxMenuOpen(false)}
+                        className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700"
+                      >
+                        Open mailbox
+                      </Link>
+                    </div>
+                  ) : null}
+                </div>
                 <Link
                   to="/admissions"
                   className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-950 hover:text-slate-950"
@@ -387,7 +510,7 @@ export default function AdminLayout() {
           </header>
 
           <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">
-            <Outlet />
+            <Outlet context={{ mailboxSummary, refreshMailboxSummary: refreshMailbox, portalSession: session }} />
           </main>
         </div>
       </div>

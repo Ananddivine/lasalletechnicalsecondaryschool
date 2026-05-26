@@ -58,6 +58,65 @@ export function fetchManageOverview() {
   })
 }
 
+export function fetchActivitiesOverview() {
+  return apiClient.get('/admin/activities').then((response) => response.data).catch((error) => {
+    throw new Error(getErrorMessage(error))
+  })
+}
+
+export function fetchMailboxSummary() {
+  return apiClient.get('/mailbox/summary').then((response) => response.data).catch((error) => {
+    throw new Error(getErrorMessage(error))
+  })
+}
+
+export function fetchMailboxMessages(params) {
+  return apiClient.get('/mailbox/messages', { params }).then((response) => response.data).catch((error) => {
+    throw new Error(getErrorMessage(error))
+  })
+}
+
+export function fetchMailboxMessage(uid, params) {
+  return apiClient.get(`/mailbox/messages/${uid}`, { params }).then((response) => response.data).catch((error) => {
+    throw new Error(getErrorMessage(error))
+  })
+}
+
+export function markMailboxMessageRead(uid) {
+  return apiClient.post(`/mailbox/messages/${uid}/read`).then((response) => response.data).catch((error) => {
+    throw new Error(getErrorMessage(error))
+  })
+}
+
+export function replyMailboxMessage(uid, formData) {
+  return apiClient.post(`/mailbox/messages/${uid}/reply`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }).then((response) => response.data).catch((error) => {
+    throw new Error(getErrorMessage(error))
+  })
+}
+
+export function sendMailboxMessage(formData) {
+  return apiClient.post('/mailbox/send', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }).then((response) => response.data).catch((error) => {
+    throw new Error(getErrorMessage(error))
+  })
+}
+
+export function downloadMailboxAttachment(uid, attachmentId, params = {}) {
+  return apiClient.get(`/mailbox/messages/${uid}/attachments/${attachmentId}`, {
+    params,
+    responseType: 'blob',
+  }).then((response) => response.data).catch((error) => {
+    throw new Error(getErrorMessage(error))
+  })
+}
+
 export function fetchPortalUsers() {
   return apiClient.get('/users').then((response) => response.data).catch((error) => {
     throw new Error(getErrorMessage(error))
