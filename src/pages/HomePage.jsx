@@ -134,7 +134,7 @@ export default function HomePage() {
     <div className="space-y-20 ">
       <Hero />
       <section className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr] lg:items-stretch">
-        <ScrollReveal effect="fade-left" className="serial-light-frame rounded-[2rem] p-[2px]" once={false}>
+      
           <div className="serial-light-panel h-full rounded-[calc(2rem-2px)] bg-[linear-gradient(145deg,rgba(255,255,255,0.96),rgba(241,245,249,0.94))] p-8 sm:p-10 shadow-[0_28px_80px_rgba(15,23,42,0.14)]">
             <p className="text-sm font-semibold uppercase tracking-[0.36em] text-sky-700">Principal message</p>
             <h2 className="mt-4 max-w-2xl text-3xl font-semibold text-slate-950 sm:text-4xl">Welcome to La Salle Technical Secondary School, Hohola</h2>
@@ -167,7 +167,7 @@ export default function HomePage() {
               </div>
             </div>
           </div>
-        </ScrollReveal>
+      
         <ScrollReveal effect="fade-right" className="serial-light-frame rounded-[2rem] p-[2px]" once={false}>
           <div className="serial-light-panel serial-light-photo rounded-[calc(2rem-2px)] bg-slate-950/95 p-4 shadow-[0_28px_80px_rgba(15,23,42,0.18)]">
             <div className="relative overflow-hidden rounded-[1.65rem]">
@@ -203,10 +203,10 @@ export default function HomePage() {
           </div>
         </ScrollReveal>
         <div className="grid gap-6">
-          <ScrollReveal effect="fade-left" className="rounded-[2rem] bg-gradient-to-br from-pink-100 via-orange-100 to-sky-200 p-6 ring-1 ring-slate-200 shadow-[0_35px_90px_rgba(148,163,184,0.18)] transition duration-700 hover:-translate-y-1" once={false}>
+          <div className="rounded-[2rem] bg-gradient-to-br from-pink-100 via-orange-100 to-sky-200 p-6 ring-1 ring-slate-200 shadow-[0_35px_90px_rgba(148,163,184,0.18)] transition duration-700 hover:-translate-y-1" once={false}>
             <h3 className="text-2xl font-semibold text-slate-950">Our achievements</h3>
             <p className="mt-4 leading-8 text-slate-600">La Salle Technical Secondary School proudly held the top national ranking in the 2024 and 2025 Grade 10 and 12 examinations, a testament to our dedicated faculty and hardworking students.</p>
-          </ScrollReveal>
+          </div>
           <ScrollReveal effect="fade-right" className="overflow-hidden rounded-[2rem] ring-1 ring-slate-200 shadow-[0_35px_90px_rgba(148,163,184,0.18)] transition duration-700 hover:-translate-y-1" once={false}>
             <div className="relative h-full min-h-[18rem]">
               <img
@@ -250,7 +250,7 @@ export default function HomePage() {
         </div>
       </section>
       <section className="grid gap-8 lg:grid-cols-2">
-        <ScrollReveal effect="fade-left" className="rounded-[2rem] bg-gradient-to-br from-white via-slate-50 to-purple-50 p-10 ring-1 ring-slate-200 shadow-[0_35px_90px_rgba(148,163,184,0.18)]" once={false}>
+        <div className="rounded-[2rem] bg-gradient-to-br from-white via-slate-50 to-purple-50 p-10 ring-1 ring-slate-200 shadow-[0_35px_90px_rgba(148,163,184,0.18)]" once={false}>
           <p className="text-indigo-600 uppercase tracking-[0.36em] text-sm font-semibold">About the school</p>
           <h2 className="mt-4 text-3xl font-semibold text-slate-950">A Catholic technical school with a national impact</h2>
           <div className="mt-6 rounded-[1.5rem] border border-slate-200 bg-white px-6 py-5 shadow-sm">
@@ -269,7 +269,7 @@ export default function HomePage() {
               className="h-72 w-full object-cover object-center contrast-[1.08] saturate-[1.08] brightness-[1.03]"
             />
           </div>
-        </ScrollReveal>
+        </div>
         <ScrollReveal effect="fade-right" className="rounded-[2rem] bg-gradient-to-br from-pink-100 via-orange-100 to-sky-200 p-10 ring-1 ring-slate-200 shadow-[0_35px_90px_rgba(148,163,184,0.18)]" once={false}>
           <h2 className="text-3xl font-semibold text-slate-950">Quick facts</h2>
           <ul className="mt-6 space-y-4 text-slate-700">
@@ -304,7 +304,7 @@ export default function HomePage() {
         </div>
       </section>
       <section className="space-y-8">
-        <ScrollReveal effect="fade-up" className="rounded-[2rem] bg-gradient-to-br from-amber-100 via-white to-sky-100 p-10 ring-1 ring-slate-200 shadow-[0_35px_90px_rgba(148,163,184,0.18)]" once={false}>
+        <div className="rounded-[2rem] bg-gradient-to-br from-amber-100 via-white to-sky-100 p-10 ring-1 ring-slate-200 shadow-[0_35px_90px_rgba(148,163,184,0.18)]" once={false}>
           <p className="text-amber-700 text-sm font-semibold uppercase tracking-[0.36em]">Why La Salle</p>
           <h2 className="mt-4 text-4xl font-semibold text-slate-950">A stronger future built through faith, skill, and opportunity</h2>
           <p className="mt-6 max-w-4xl leading-8 text-slate-600">La Salle Technical Secondary School has impacted thousands of lives by fostering knowledge, practical skills, and enduring values. We combine academic performance with technical and vocational training so students are equipped to contribute meaningfully to Papua New Guinea’s future.</p>
@@ -321,7 +321,7 @@ export default function HomePage() {
               </ScrollReveal>
             ))}
           </div>
-        </ScrollReveal>
+        </div>
       </section>
       <section className="space-y-8">
         <ScrollReveal effect="fade-up" className="rounded-[2rem] bg-gradient-to-br from-cyan-100 via-slate-100 to-emerald-100 p-10 ring-1 ring-slate-200 shadow-[0_35px_90px_rgba(148,163,184,0.18)]" once={false}>
@@ -366,7 +366,7 @@ export default function HomePage() {
             View the full history
           </Link>
         </ScrollReveal>
-        <ScrollReveal effect="fade-right" className="rounded-[2rem] bg-gradient-to-br from-cyan-100 via-slate-100 to-emerald-100 p-8 ring-1 ring-slate-200 shadow-[0_35px_90px_rgba(148,163,184,0.18)]" once={false}>
+        <div className="rounded-[2rem] bg-gradient-to-br from-cyan-100 via-slate-100 to-emerald-100 p-8 ring-1 ring-slate-200 shadow-[0_35px_90px_rgba(148,163,184,0.18)]" once={false}>
           <h2 className="text-3xl font-semibold text-slate-950">Student handbook</h2>
           <p className="mt-4 text-slate-600 leading-8">Learn more about school expectations, student responsibilities, conduct procedures, and the Lasallian values that guide our community.</p>
           <Link
@@ -375,7 +375,7 @@ export default function HomePage() {
           >
             View the student handbook
           </Link>
-        </ScrollReveal>
+        </div>
       </section>
     </div>
   )

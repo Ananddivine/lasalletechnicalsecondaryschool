@@ -29,6 +29,8 @@ import ContactPage from './pages/ContactPage'
 import HistoryPage from './pages/HistoryPage'
 import StudentHandbookPage from './pages/StudentHandbookPage'
 import { getSeoConfig } from './seoConfig'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { queryClient } from './queryClient-setup.jsx'
 
 function AppContent() {
   const location = useLocation()
@@ -79,9 +81,11 @@ function AppContent() {
 
 function App() {
   return (
-    <BrowserRouter>
-      <AppContent />
-    </BrowserRouter>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <AppContent />
+      </BrowserRouter>
+    </QueryClientProvider>
   )
 }
 

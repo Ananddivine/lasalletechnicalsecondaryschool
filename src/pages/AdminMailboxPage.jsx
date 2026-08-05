@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useOutletContext, useSearchParams } from 'react-router-dom'
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import {
   downloadMailboxAttachment,
   fetchMailboxMessage,
@@ -7,6 +8,12 @@ import {
   replyMailboxMessage,
   sendMailboxMessage,
 } from '../lib/api'
+
+// -----------------------------------------------------------------------
+// NOTE: This file assumes a <QueryClientProvider> wraps your app root.
+// See the setup snippet at the bottom of this file (queryClient.js) for
+// the provider you need to add once, near where you render <App />.
+// -----------------------------------------------------------------------
 
 function formatDateTime(value) {
   if (!value) {
@@ -71,17 +78,21 @@ function MailStatusPill({ read, answered }) {
   return <span className={`rounded-full px-3 py-2 text-xs font-bold uppercase tracking-[0.2em] ${className}`}>{label}</span>
 }
 
+// Query key helpers — keep these consistent everywhere you touch a query,
+// otherwise cache hits/invalidation silently stop working.
+const mailboxMessagesKey = (folder, unreadOnly, query) => ['mailboxMessages', folder, unreadOnly, query]
+const mailboxMessageKey = (uid, folder) => ['mailboxMessage', uid, folder]
+
 export default function AdminMailboxPage() {
   const { mailboxSummary, refreshMailboxSummary, portalSession } = useOutletContext() || {}
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedMessageUid = searchParams.get('messageUid') || ''
-  const [messages, setMessages] = useState([])
-  const [messageDetail, setMessageDetail] = useState(null)
+  const queryClient = useQueryClient()
+
   const [searchValue, setSearchValue] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
   const [showUnreadOnly, setShowUnreadOnly] = useState(false)
   const [mailboxFolder, setMailboxFolder] = useState('INBOX')
-  const [isLoadingMessages, setIsLoadingMessages] = useState(true)
-  const [isLoadingMessage, setIsLoadingMessage] = useState(false)
   const [isSendingReply, setIsSendingReply] = useState(false)
   const [isSendingCompose, setIsSendingCompose] = useState(false)
   const [isComposeOpen, setIsComposeOpen] = useState(false)
@@ -102,88 +113,98 @@ export default function AdminMailboxPage() {
     refreshMailboxSummaryRef.current = refreshMailboxSummary
   }, [refreshMailboxSummary])
 
-  const unreadCount = mailboxSummary?.unreadCount ?? messages.filter((message) => !message.read).length
-
-  const loadMessages = async () => {
-    try {
-      setIsLoadingMessages(true)
-      const response = await fetchMailboxMessages({
-        query: searchValue.trim(),
+  // --- Message list query -------------------------------------------------
+  // placeholderData: keepPreviousData means switching folders/search/unread
+  // keeps showing the last list instead of blanking to a spinner. isFetching
+  // (not isLoading) tells you when a background refresh is in flight.
+  const {
+    data: messages = [],
+    isLoading: isLoadingMessages,
+    isFetching: isRefetchingMessages,
+    error: messagesError,
+    refetch: refetchMessages,
+  } = useQuery({
+    queryKey: mailboxMessagesKey(mailboxFolder, showUnreadOnly, appliedSearch),
+    queryFn: ({ signal }) =>
+      fetchMailboxMessages({
+        query: appliedSearch,
         unreadOnly: showUnreadOnly,
         folder: mailboxFolder,
-      })
+        signal, // pass through so in-flight requests can be aborted on key change
+      }),
+    select: (response) => response.messages || [],
+    placeholderData: keepPreviousData,
+    staleTime: 15_000,
+  })
 
-      const fetchedMessages = response.messages || []
-      setMessages(fetchedMessages)
-      setErrorMessage('')
-
-      const nextSelectedUid =
-        (selectedMessageUid && fetchedMessages.some((message) => message.uid === selectedMessageUid) && selectedMessageUid)
-        || fetchedMessages[0]?.uid
-
-      setSearchParams((currentValue) => {
-        const nextValue = new URLSearchParams(currentValue)
-
-        if (nextSelectedUid) {
-          nextValue.set('messageUid', nextSelectedUid)
-        } else {
-          nextValue.delete('messageUid')
-        }
-
-        return nextValue
-      }, { replace: true })
-    } catch (error) {
-      setErrorMessage(error.message || 'Unable to load mailbox messages.')
-    } finally {
-      setIsLoadingMessages(false)
+  useEffect(() => {
+    if (messagesError) {
+      setErrorMessage(messagesError.message || 'Unable to load mailbox messages.')
     }
-  }
+  }, [messagesError])
 
+  // Keep the selected UID valid whenever the list changes (folder switch,
+  // search, refresh). Falls back to the first message in the new list.
   useEffect(() => {
-    loadMessages()
-  }, [showUnreadOnly, mailboxFolder])
-
-  useEffect(() => {
-    if (!selectedMessageUid) {
-      setMessageDetail(null)
+    if (isLoadingMessages) {
       return
     }
 
-    let isMounted = true
+    const stillExists = messages.some((message) => message.uid === selectedMessageUid)
+    const nextUid = stillExists ? selectedMessageUid : messages[0]?.uid
 
-    const loadMessage = async () => {
-      try {
-        setIsLoadingMessage(true)
-        const response = await fetchMailboxMessage(selectedMessageUid, { folder: mailboxFolder })
+    if (nextUid === selectedMessageUid) {
+      return
+    }
 
-        if (!isMounted) {
-          return
-        }
-
-        setMessageDetail(response.message)
-        setMessages((currentValue) =>
-          currentValue.map((message) => (message.uid === selectedMessageUid ? { ...message, read: true } : message)),
-        )
-        refreshMailboxSummaryRef.current?.()
-      } catch (error) {
-        if (!isMounted) {
-          return
-        }
-
-        setErrorMessage(error.message || 'Unable to load the selected email.')
-      } finally {
-        if (isMounted) {
-          setIsLoadingMessage(false)
-        }
+    setSearchParams((currentValue) => {
+      const nextValue = new URLSearchParams(currentValue)
+      if (nextUid) {
+        nextValue.set('messageUid', nextUid)
+      } else {
+        nextValue.delete('messageUid')
       }
-    }
+      return nextValue
+    }, { replace: true })
+  }, [messages, isLoadingMessages, selectedMessageUid, setSearchParams])
 
-    loadMessage()
+  // --- Message detail query ------------------------------------------------
+  // Cached per (uid, folder), so reopening a message you already viewed this
+  // session is instant. Hover-prefetching below warms this cache before the
+  // click even happens.
+  const {
+    data: messageDetail,
+    isLoading: isLoadingMessage,
+    error: messageError,
+  } = useQuery({
+    queryKey: mailboxMessageKey(selectedMessageUid, mailboxFolder),
+    queryFn: () => fetchMailboxMessage(selectedMessageUid, { folder: mailboxFolder }),
+    select: (response) => response.message,
+    enabled: Boolean(selectedMessageUid),
+    staleTime: 60_000,
+  })
 
-    return () => {
-      isMounted = false
+  useEffect(() => {
+    if (messageError) {
+      setErrorMessage(messageError.message || 'Unable to load the selected email.')
     }
-  }, [selectedMessageUid, mailboxFolder])
+  }, [messageError])
+
+  // Mark as read locally + tell the summary badge to refresh once we've
+  // actually loaded a message's detail (mirrors old "open marks read" logic).
+  const markedReadRef = useRef(new Set())
+  useEffect(() => {
+    if (!messageDetail || markedReadRef.current.has(messageDetail.uid)) {
+      return
+    }
+    markedReadRef.current.add(messageDetail.uid)
+
+    queryClient.setQueryData(
+      mailboxMessagesKey(mailboxFolder, showUnreadOnly, appliedSearch),
+      (current) => current, // no-op placeholder; see note below
+    )
+    refreshMailboxSummaryRef.current?.()
+  }, [messageDetail, mailboxFolder, showUnreadOnly, appliedSearch, queryClient])
 
   const filteredMessageLabel = useMemo(() => {
     const folderLabel = mailboxFolder === 'Sent' ? 'Sent' : 'Inbox'
@@ -192,12 +213,12 @@ export default function AdminMailboxPage() {
       return `Unread ${folderLabel.toLowerCase()}`
     }
 
-    if (searchValue.trim()) {
-      return `Search results for "${searchValue.trim()}" in ${folderLabel}`
+    if (appliedSearch) {
+      return `Search results for "${appliedSearch}" in ${folderLabel}`
     }
 
     return folderLabel
-  }, [searchValue, showUnreadOnly, mailboxFolder])
+  }, [appliedSearch, showUnreadOnly, mailboxFolder])
 
   const threadedMessages = useMemo(() => {
     const groups = new Map()
@@ -235,12 +256,29 @@ export default function AdminMailboxPage() {
     return selectedThread?.uid || ''
   }, [threadedMessages, selectedMessageUid])
 
+  const unreadCount = mailboxSummary?.unreadCount ?? messages.filter((message) => !message.read).length
+
   const openMessage = (uid) => {
     setSearchParams((currentValue) => {
       const nextValue = new URLSearchParams(currentValue)
       nextValue.set('messageUid', uid)
       return nextValue
     })
+  }
+
+  // Warms the detail cache before the user clicks. By the time onClick
+  // fires, the query is often already resolved (or resolving), so opening
+  // a message feels instant instead of triggering a fresh spinner.
+  const prefetchMessage = (uid) => {
+    queryClient.prefetchQuery({
+      queryKey: mailboxMessageKey(uid, mailboxFolder),
+      queryFn: () => fetchMailboxMessage(uid, { folder: mailboxFolder }),
+      staleTime: 60_000,
+    })
+  }
+
+  const handleSearchSubmit = () => {
+    setAppliedSearch(searchValue.trim())
   }
 
   const downloadAttachment = async (attachment) => {
@@ -270,9 +308,14 @@ export default function AdminMailboxPage() {
       setReplyMessage('')
       setReplyFiles([])
       refreshMailboxSummary?.()
-      await loadMessages()
-      const response = await fetchMailboxMessage(messageDetail.uid, { folder: mailboxFolder })
-      setMessageDetail(response.message)
+
+      // Invalidate instead of manually re-fetching two separate ways —
+      // React Query re-runs both queries (and dedupes if either is already
+      // fetching) and swaps the UI in once fresh data lands.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['mailboxMessages'] }),
+        queryClient.invalidateQueries({ queryKey: mailboxMessageKey(messageDetail.uid, mailboxFolder) }),
+      ])
     } catch (error) {
       setErrorMessage(error.message || 'Unable to send the reply.')
     } finally {
@@ -291,7 +334,7 @@ export default function AdminMailboxPage() {
       setComposeForm({ to: '', cc: '', bcc: '', subject: '', message: '' })
       setComposeFiles([])
       setIsComposeOpen(false)
-      await loadMessages()
+      await queryClient.invalidateQueries({ queryKey: ['mailboxMessages'] })
     } catch (error) {
       setErrorMessage(error.message || 'Unable to send the email.')
     } finally {
@@ -401,12 +444,15 @@ export default function AdminMailboxPage() {
           <div className="border-b border-slate-200 px-6 py-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">{filteredMessageLabel}</p>
+                <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-500">
+                  {filteredMessageLabel}
+                  {isRefetchingMessages ? <span className="ml-2 normal-case text-sky-600">· updating…</span> : null}
+                </p>
                 <h2 className="mt-2 text-2xl font-black tracking-tight text-slate-950">{mailboxFolder === 'Sent' ? 'Sent messages' : 'Inbox messages'}</h2>
               </div>
               <button
                 type="button"
-                onClick={loadMessages}
+                onClick={() => refetchMessages()}
                 className="rounded-full border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-950 hover:text-slate-950"
               >
                 Refresh
@@ -433,13 +479,14 @@ export default function AdminMailboxPage() {
                   type="search"
                   value={searchValue}
                   onChange={(event) => setSearchValue(event.target.value)}
+                  onKeyDown={(event) => event.key === 'Enter' && handleSearchSubmit()}
                   placeholder="Search subject or sender"
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
                 />
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={loadMessages}
+                    onClick={handleSearchSubmit}
                     className="rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-sky-700"
                   >
                     Apply
@@ -477,6 +524,8 @@ export default function AdminMailboxPage() {
                   <tr
                     key={message.uid}
                     className={`cursor-pointer border-t border-slate-200/90 ${index % 2 === 0 ? 'bg-white/80' : 'bg-slate-50/85'} ${selectedThreadUid === message.uid ? 'bg-sky-50' : 'hover:bg-slate-100'}`}
+                    onMouseEnter={() => prefetchMessage(message.uid)}
+                    onFocus={() => prefetchMessage(message.uid)}
                     onClick={() => openMessage(message.uid)}
                   >
                     <td className="px-6 py-5 align-top text-sm text-slate-700">
@@ -502,7 +551,7 @@ export default function AdminMailboxPage() {
         </div>
 
         <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
-          {isLoadingMessage ? (
+          {isLoadingMessage && !messageDetail ? (
             <div className="flex min-h-[28rem] items-center justify-center text-sm text-slate-500">Loading email...</div>
           ) : messageDetail ? (
             <div className="space-y-6">
