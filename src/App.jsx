@@ -47,15 +47,15 @@ function AppContent() {
           <Route path="/about" element={<AboutPage />} />
           <Route path="/programs" element={<ProgramsPage />} />
           <Route path="/programs/:slug" element={<ProgramDetail />} />
-          <Route path="/admissions" element={<AdmissionsPage />} />
-          <Route path="/admissions/grade-9" element={<Grade9AdmissionPage />} />
-          <Route path="/admissions/grade-9-transfer" element={<Grade9TransferAdmissionPage />} />
-          <Route path="/admissions/grade-10" element={<Grade10AdmissionPage />} />
-          <Route path="/admissions/grade-10-transfer" element={<Grade10TransferAdmissionPage />} />
-          <Route path="/admissions/grade-11" element={<Grade11AdmissionPage />} />
-          <Route path="/admissions/grade-11-transfer" element={<Grade11TransferAdmissionPage />} />
-          <Route path="/admissions/grade-12" element={<Grade12AdmissionPage />} />
-          <Route path="/admissions/nc-1-2" element={<NC12AdmissionPage />} />
+          <Route path="/" element={<AdmissionsPage />} />
+          <Route path="/" element={<Grade9AdmissionPage />} />
+          <Route path="/" element={<Grade9TransferAdmissionPage />} />
+          <Route path="/" element={<Grade10AdmissionPage />} />
+          <Route path="/" element={<Grade10TransferAdmissionPage />} />
+          <Route path="/" element={<Grade11AdmissionPage />} />
+          <Route path="/" element={<Grade11TransferAdmissionPage />} />
+          <Route path="/" element={<Grade12AdmissionPage />} />
+          <Route path="/" element={<NC12AdmissionPage />} />
           <Route path="/history" element={<HistoryPage />} />
           <Route path="/handbook" element={<StudentHandbookPage />} />
           <Route path="/contact" element={<ContactPage />} />
